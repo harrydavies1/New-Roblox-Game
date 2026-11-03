@@ -27,7 +27,7 @@ local function drainAudio()
  end
 end
 local audioSettings={SFX=true}
-local sounds=Audio.new(function() return audioSettings end)
+local sounds=Audio.new(function() return audioSettings end,require("../src/shared/AudioConfig"))
 sounds:Play("Click"); verify(sounds.Voices==2)
 local active=services.SoundService:GetChildren()
 verify(active[1].SoundId=="rbxasset://sounds/action_footsteps_plastic.mp3" and active[1].PlaybackSpeed==2.7,"click uses a dry tap, not the reward bell")
@@ -195,7 +195,7 @@ for _,route in Config.Obbies do
  local packet={Kind="ObbyComplete",Course=route.Name,RouteId=route.Id,Amount=reward.Amount,XP=reward.XP,Pet=reward.Pet,First=reward.First,Practice=false}
  dispatcher:Handle(packet)
  verify(shown[#shown]==packet and shown[#shown].XP==route.FirstXP,"finish XP and pet reach the actual prize dispatcher")
- verify(played[#played]==(if route.PetReward then "PetUnlock" else "ObbyComplete"))
+ verify(played[#played]=="ObbyComplete","every obby clear uses the chosen victory clip, including pet finishes")
  verify(celebrated[#celebrated]==route.Id)
 end
 local finishCount=#shown; dispatcher:Handle({Kind="ObbyComplete",Practice=true}); verify(#shown==finishCount,"practice never pretends to award a prize")

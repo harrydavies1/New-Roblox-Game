@@ -10,12 +10,14 @@ local UI=require(script.UI)
 local Effects=require(script.Effects)
 local Pose=require(script.MogPose)
 local Audio=require(script.Audio)
+local AudioConfig=require(shared.AudioConfig)
+local Music=require(script.Music)
 local WorldVisibility=require(script.WorldVisibility)
 local CourseGuide=require(script.CourseGuide)
 local remotes=ReplicatedStorage:WaitForChild("MogRemotes")
 local request=remotes:WaitForChild("Action"); local click=remotes:WaitForChild("Click")
 local stateEvent=remotes:WaitForChild("State"); local effectEvent=remotes:WaitForChild("Effect")
-local ui,effects,visibility,accept; local lastClick=-1
+local ui,effects,visibility,accept,music; local lastClick=-1
 ui=UI.new(Config,Engine,Format,{
  Click=function()
   if not ui or not ui.State or ui.ConfirmFrame.Visible then return end
@@ -25,12 +27,14 @@ ui=UI.new(Config,Engine,Format,{
  Action=function(name,payload) return request:InvokeServer(name,payload) end,
  Feedback=function(kind) if effects then effects:Sound(kind) end end,
  State=function(state) if accept then accept(state) end end,
+ MusicStatus=function() return if music then music:View() else nil end,
  PetPreview=function(viewport,definition,level)
   local pet=Factory.Create(definition,level); local world=Instance.new("WorldModel"); world.Parent=viewport; pet.Model.Parent=world
   local camera=Instance.new("Camera"); camera.FieldOfView=38; camera.CFrame=CFrame.lookAt(Vector3.new(3.2,2,-5),Vector3.new(0,.3,0)); camera.Parent=viewport; viewport.CurrentCamera=camera
  end,
 })
-local audio=Audio.new(function() return if ui.State then ui.State.Settings else {SFX=true,Effects=true} end)
+local audio=Audio.new(function() return if ui.State then ui.State.Settings else {SFX=true,Effects=true} end,AudioConfig)
+music=Music.new(AudioConfig.Music,function() return ui.State and ui.State.Settings end)
 effects=Effects.new(Config,Engine,Format,Factory,ui,audio)
 effects.Pose=Pose.new(function() return ui.State and ui.State.Settings.Effects end)
 visibility=WorldVisibility.new(Engine.Worlds)

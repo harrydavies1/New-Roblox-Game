@@ -50,8 +50,10 @@ function methods:FindFirstAncestorOfClass(class)
  while parent do if parent.ClassName==class then return parent end; parent=parent.Parent end
  return nil
 end
-function methods:Play() self.Playing=true end
-function methods:Stop() self.Playing=false end
+function methods:Play() self.Playing=true; self.IsPlaying=true; self.TimePosition=0 end
+function methods:Stop() self.Playing=false; self.IsPlaying=false; self.TimePosition=0 end
+function methods:Pause() self.Playing=false; self.IsPlaying=false end
+function methods:Resume() self.Playing=true; self.IsPlaying=true end
 function methods:FireClient(player,data)
  self._events=self._events or {}; table.insert(self._events,{Player=player,Data=data})
 end
@@ -68,10 +70,10 @@ local meta={
   self._props[key]=value
  end,
 }
-local Instance={new=function(class) return setmetatable({_children={},_signals={},_attributes={},_props={ClassName=class,Name=class,Active=true,Interactable=true,Visible=true,Enabled=true,Position=UDim2.new(),Size=UDim2.new(),Text="",Activated=signal(),Triggered=signal(),Touched=signal(),InputBegan=signal(),OnServerEvent=signal(),CharacterAdded=signal(),PlayerAdded=signal(),PlayerRemoving=signal(),DescendantAdded=signal(),DescendantRemoving=signal()}},meta) end}
+local Instance={new=function(class) return setmetatable({_children={},_signals={},_attributes={},_props={ClassName=class,Name=class,Active=true,Interactable=true,Visible=true,Enabled=true,IsLoaded=true,TimeLength=.5,TimePosition=0,Position=UDim2.new(),Size=UDim2.new(),Text="",Ended=signal(),Loaded=signal(),Activated=signal(),Triggered=signal(),Touched=signal(),InputBegan=signal(),OnServerEvent=signal(),CharacterAdded=signal(),PlayerAdded=signal(),PlayerRemoving=signal(),DescendantAdded=signal(),DescendantRemoving=signal()}},meta) end}
 local player=Instance.new("Player"); local gui=Instance.new("PlayerGui"); gui.Name="PlayerGui"; gui.Parent=player
 local camera=Instance.new("Camera"); camera.ViewportSize=Vector2.new(1280,720)
 local workspace=Instance.new("Workspace"); workspace.CurrentCamera=camera
-local services={Players={LocalPlayer=player},RunService={Heartbeat=signal()},UserInputService={InputBegan=signal(),GamepadEnabled=false},GuiService={GetGuiInset=function() return Vector2.new(0,36),Vector2.zero end},TweenService={Create=function(_,object,_,values) return {Play=function() for k,v in values do object[k]=v end end} end}}
+local services={Players={LocalPlayer=player},RunService={Heartbeat=signal()},UserInputService={InputBegan=signal(),GamepadEnabled=false},GuiService={GetGuiInset=function() return Vector2.new(0,36),Vector2.zero end},TweenService={Create=function(_,object,_,values) return {Play=function() for k,v in values do object[k]=v end end,Cancel=function() end} end}}
 local game={JobId="contract-test",GetService=function(_,name) assert(services[name],"Unmocked service "..name); return services[name] end}
 local task={delay=function() end,spawn=function(f) f() end,wait=function() end}

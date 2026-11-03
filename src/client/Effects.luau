@@ -49,9 +49,10 @@ function Effects.new(config,engine,format,factory,ui,audio)
   elseif event.Kind=="RewardStatus" then ui:Toast(event.Message,false)
   elseif event.Kind=="Checkpoint" then if event.Amount>0 then self:Sound("Checkpoint"); ui:Toast("CHECKPOINT W! +"..format.number(event.Amount).." Aura"); self:Float(event.Amount) end
   elseif event.Kind=="ObbyComplete" then
+   self:Sound("ObbyComplete")
    if event.Practice then ui:Toast("Practice clear · rewards are still cooling down.",false)
    else
-    self:Celebrate(); self:Sound(if event.Pet then "PetUnlock" else "ObbyComplete")
+    self:Celebrate()
     ui:ShowReward(event)
     if self.Guide then self.Guide:Celebrate(event.RouteId) end
    end

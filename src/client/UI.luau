@@ -506,7 +506,22 @@ function UI.new(config, engine, format, callbacks)
 			local status = label(saving, "", 10, UDim2.fromOffset(12, 93), UDim2.new(1, -24, 0, 18), Theme.Secondary, false)
 			self:Bind(function(s) status.Text = if s.Save.Persistent then "Storage: cloud · " .. s.Save.State else "Storage: temporary preview" end)
 			self:CardButton(saving, "Save now", false, function() self:Request("SaveNow", {}) end)
-			for _, option in { { Id = "SFX", Name = "Sound effects", Description = "Dry taps, checkpoint cues, reward chimes, and travel sounds." }, { Id = "Effects", Name = "Extra animation", Description = "Pet bobbing, small reward pop-ups, particles, and mog poses." } } do
+			local musicCard = self:Card("Music", "Tender Static → Elevator Jazz → Gymnopedie No. 1. The playlist repeats in order.", 235)
+			musicCard.Description.Size = UDim2.new(1, -24, 0, 36)
+			self:AccentCard(musicCard, Theme.Blue)
+			local playing = label(musicCard, "", 10, UDim2.fromOffset(12, 77), UDim2.new(1, -24, 0, 32), Theme.Secondary, false)
+			local toggle = button(musicCard, "", UDim2.fromOffset(12, 119), UDim2.new(1, -24, 0, 44), true, function() self:Request("Setting", { Id = "Music", Value = not self.State.Settings.Music }) end)
+			local down = button(musicCard, "−", UDim2.new(0, 12, 1, -56), UDim2.fromOffset(44, 44), false, function() self:Request("Setting", { Id = "MusicVolume", Value = math.max(0, self.State.Settings.MusicVolume - 25) }) end)
+			local level = label(musicCard, "", 12, UDim2.new(0, 64, 1, -56), UDim2.new(1, -128, 0, 44), Theme.Ink, true); level.TextXAlignment = Enum.TextXAlignment.Center
+			local up = button(musicCard, "+", UDim2.new(1, -56, 1, -56), UDim2.fromOffset(44, 44), false, function() self:Request("Setting", { Id = "MusicVolume", Value = math.min(100, self.State.Settings.MusicVolume + 25) }) end)
+			self:Bind(function(s)
+				toggle.Text = if s.Settings.Music then "Music on · mute" else "Music off · enable"
+				level.Text = "Volume " .. s.Settings.MusicVolume .. "%"
+				down.Active = s.Settings.MusicVolume > 0; up.Active = s.Settings.MusicVolume < 100
+				local status = callbacks.MusicStatus and callbacks.MusicStatus()
+				playing.Text = if not s.Settings.Music then "Paused · sound effects have their own toggle" elseif status and status.State == "playing" then status.Title elseif status and status.State == "retrying" then "Music unavailable · trying again shortly" else "Loading the playlist…"
+			end)
+			for _, option in { { Id = "SFX", Name = "Sound effects", Description = "Aura pickup pops, bubble menu taps, victory audio, and gameplay cues." }, { Id = "Effects", Name = "Extra animation", Description = "Pet bobbing, small reward pop-ups, particles, and mog poses." } } do
 				local card = self:Card(option.Name, option.Description, 135)
 				local b = self:CardButton(card, "", false, function() self:Request("Setting", { Id = option.Id, Value = not self.State.Settings[option.Id] }) end)
 				self:Bind(function(s) b.Text = if s.Settings[option.Id] then "On · turn off" else "Off · turn on" end)

@@ -2,6 +2,8 @@
 
 This revision fixes the reported "nothing happens" finish behavior and gives MOG MODE a consistent cartoon arcade identity. It builds on the five-island version; it does not reset existing profiles or change sold product mappings.
 
+This note records the `f2b7e0f` revision. The subsequent [music/audio revision](AUDIO.md) replaces selected sound arrangements and adds a saved music playlist; see the README for current test counts.
+
 ## The obby defect and fix
 
 Previously, walking from an island onto a course did not create a tracked run. The player had to start through the menu. The visible prize was decorative, and the server only listened for numbered platform contacts. A finish after an untracked run did nothing. An interrupted contact could also stall ordered progress, and a failed finish save required stepping off and touching the final platform again.

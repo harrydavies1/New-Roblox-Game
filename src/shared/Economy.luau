@@ -32,7 +32,7 @@ function Economy.new(config: any): any
 			Login = { FirstSeenAt = 0, LastClaimAt = 0, Claims = 0 },
 			Obby = { FirstClear = {}, NextRewardAt = {}, StagePaidAt = {}, Clears = 0 },
 			Boosts = { AuraUntil = 0, XPUntil = 0 },
-			Settings = { SFX = true, Effects = true },
+			Settings = { SFX = true, Effects = true, Music = true, MusicVolume = 50 },
 		}
 	end
 	function engine.XPRequired(_self: any, level: number): number return math.floor(config.XPBase * level ^ config.XPExponent) end
@@ -102,7 +102,8 @@ function Economy.new(config: any): any
 			end
 		end
 		if type(raw.Settings) == "table" then
-			for _, key in { "SFX", "Effects" } do if type(raw.Settings[key]) == "boolean" then p.Settings[key] = raw.Settings[key] end end
+			for _, key in { "SFX", "Effects", "Music" } do if type(raw.Settings[key]) == "boolean" then p.Settings[key] = raw.Settings[key] end end
+			p.Settings.MusicVolume = integer(raw.Settings.MusicVolume, 50, 100)
 		end
 		if type(raw.Milestones) == "table" then
 			for id in milestones do if raw.Milestones[id] == true then p.Milestones[id] = true end end
@@ -329,7 +330,12 @@ function Economy.new(config: any): any
 			p.ActiveCosmetics[item.Kind] = if p.ActiveCosmetics[item.Kind] == id then nil else id
 			return true, "Style updated!"
 		elseif action == "Setting" then
-			if (id ~= "SFX" and id ~= "Effects") or type(payload.Value) ~= "boolean" then return false, "Invalid setting." end
+			if id == "MusicVolume" then
+				local value = payload.Value
+				if type(value) ~= "number" or value ~= value or value < 0 or value > 100 or value % 1 ~= 0 then return false, "Choose a music volume from 0 to 100." end
+				p.Settings.MusicVolume = value; return true, "Music volume updated."
+			end
+			if (id ~= "SFX" and id ~= "Effects" and id ~= "Music") or type(payload.Value) ~= "boolean" then return false, "Invalid setting." end
 			p.Settings[id] = payload.Value; return true, "Settings saved."
 		end
 		return false, "Unknown action."

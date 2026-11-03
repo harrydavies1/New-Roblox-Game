@@ -196,6 +196,7 @@ action.OnServerInvoke = function(player, name, payload)
 	local safe = {}
 	if type(payload.Id) == "string" and #payload.Id <= 60 then safe.Id = payload.Id end
 	if type(payload.Value) == "boolean" then safe.Value = payload.Value end
+	if name == "Setting" and type(payload.Value) == "number" then safe.Value = payload.Value end
 	local profile, reason = store:Get(player.UserId)
 	if not profile then return { Ok = false, Message = if reason == "busy" then "Saving your progress. Try again in a moment." else "Your adventure is loading." } end
 	local run = obbies:View(player)

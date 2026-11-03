@@ -103,7 +103,11 @@ local leavePending=request("LeaveObby"); expect(not leavePending.Ok and leavePen
 local travelPending=request("Travel",{Id="meadow"}); expect(not travelPending.Ok and travelPending.State.CurrentWorld=="citadel")
 storageMode.WriteAllowed=true; bootClock.Now+=5.1; services.RunService.Heartbeat:Fire(.1)
 expect(bootStore:Get(101).Pets.citadel_expert==1 and storageRecords.player_101.Data.Pets.citadel_expert==1,"standing still retries and durably delivers the actual server's exclusive prize")
+local musicVolume=request("Setting",{Id="MusicVolume",Value=75}); expect(musicVolume.Ok and musicVolume.State.Settings.MusicVolume==75,"numeric music volume must reach the real handler")
+local musicMute=request("Setting",{Id="Music",Value=false}); expect(musicMute.Ok and not musicMute.State.Settings.Music and musicMute.State.Settings.SFX)
+local badVolume=request("Setting",{Id="MusicVolume",Value=math.huge}); expect(not badVolume.Ok and badVolume.State.Settings.MusicVolume==75)
 local save=request("SaveNow"); expect(save.Ok and save.State.Save.State=="saved")
+expect(storageRecords.player_101.Data.Settings.MusicVolume==75 and not storageRecords.player_101.Data.Settings.Music,"music preferences persist without muting SFX")
 data=bootStore:Get(101); data.Login.FirstSeenAt=bootOs.time()-86400
 local login=request("ClaimLogin"); expect(login.Ok and login.State.Login.Claims==1 and login.State.Save.State=="saved")
 expect(storageRecords.player_101.Data.Login.Claims==1)

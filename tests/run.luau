@@ -252,5 +252,21 @@ test("finish and checkpoint receipts expose the XP actually awarded including bo
  eq(Engine:CheckpointReward(p,"meadow_sky",8,ctx()).XP,10)
 end)
 
+test("music preferences preserve old SFX settings and survive normalization",function()
+ local p=profile(); p.Settings={SFX=false,Effects=false}; p=Engine:Normalize(p)
+ eq(p.Settings.SFX,false); eq(p.Settings.Music,true); eq(p.Settings.MusicVolume,50)
+ assert(Engine:Apply(p,"Setting",{Id="Music",Value=false},ctx()))
+ assert(Engine:Apply(p,"Setting",{Id="MusicVolume",Value=75},ctx()))
+ p=Engine:Normalize(p); eq(p.Settings.Music,false); eq(p.Settings.MusicVolume,75); eq(p.Settings.SFX,false)
+end)
+test("music volume rejects forged nonfinite fractional and out of range values",function()
+ local p=profile()
+ for _,value in {true,"75",-1,101,25.5,math.huge,0/0} do assert(not Engine:Apply(p,"Setting",{Id="MusicVolume",Value=value},ctx())) end
+ eq(p.Settings.MusicVolume,50)
+ for _,value in {0,25,50,75,100} do assert(Engine:Apply(p,"Setting",{Id="MusicVolume",Value=value},ctx())); eq(p.Settings.MusicVolume,value) end
+ assert(not Engine:Apply(p,"Setting",{Id="Music",Value=1},ctx()))
+ p.Settings.MusicVolume=math.huge; eq(Engine:Normalize(p).Settings.MusicVolume,50)
+end)
+
 print(string.format("\n%d passed, %d failed",passed,failed))
 if failed>0 then error("Core suite failed") end

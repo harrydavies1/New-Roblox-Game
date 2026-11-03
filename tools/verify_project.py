@@ -162,8 +162,9 @@ def main():
     for key in ("Commerce", "WorldService", "SessionStore", "RateLimiter", "ServerSettings", "Storage", "ObbyService", "ObbyRun"):
         child(server, key)
     client = child(child(child(root, "StarterPlayer"), "StarterPlayerScripts"), "MogClient")
-    for key in ("UI", "PetFactory", "MogPose", "Effects", "Audio", "WorldVisibility", "CourseGuide"):
+    for key in ("UI", "PetFactory", "MogPose", "Effects", "Audio", "Music", "WorldVisibility", "CourseGuide"):
         child(client, key)
+    child(child(child(root, "ReplicatedStorage"), "MogShared"), "AudioConfig")
     mapped = set()
     def walk(node):
         for path in node.get("filePaths", []): mapped.add((ROOT/path).resolve())

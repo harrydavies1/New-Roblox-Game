@@ -16,6 +16,7 @@ Open `releases/MogMode.rbxl` in Roblox Studio on Windows or macOS and press **Pl
 - **Slower progression:** more expensive power upgrades and island unlocks, a steeper XP curve, nine ranks, 200 levels, 60 power upgrades, 20 rebirths, daily tasks, and 11 journal milestones. See [progression and rewards](docs/PROGRESSION.md).
 - **Return rewards:** no reward on the first day. The first claim unlocks 24 hours after the first saved visit; later claims are 24 hours apart. Seven Aura rewards cycle without losing a streak for missing a day. Flex Gems are never earned from gameplay.
 - **More character, compact UI:** one menu button, one next-objective card, a small gold MOG button, springy button feedback, a scrolling landscape-safe menu, pet reveals, and separate SFX/animation settings. Sixteen arcade sound cues distinguish clicks, checkpoints, route starts, pet unlocks, upgrades, travel, and rewards. Voice limits, short envelopes, and reward priority avoid a wall of overlapping pings.
+- **Selected music and effects:** Tender Static → Elevator Jazz → Gymnopedie No. 1 repeat as a client playlist. Settings includes independent saved music mute and volume. The owner's victory clip plays on obby clears, UI pop on Aura pickups/checkpoints, and bubble pop on menu taps. Full clips retain their length and pitch. See [audio IDs, editing, and Studio checks](docs/AUDIO.md).
 - **Island details:** aura-inspection mascots, brotein jokes, a cosmic side eye, a crowned final-boss honker, distinct prize-pet silhouettes, chest animations, finish pennants, and numbered landing faces. Floor surfaces have distinct heights, bloom stays low, and only 15 of 2,807 map parts use Neon.
 - **Server authority:** a 0.2-second click cooldown on both client and server, burst capacity of one, checked world/proximity/ordered-stage rewards, durable first clears and login claims, leased save sessions, and atomic paid-receipt deduplication. The cooldown caps accepted clicks at five per second; it cannot prove whether a permitted click came from an autoclicker.
 
@@ -68,7 +69,7 @@ On Linux x86_64 with Python 3, curl, and Git:
 bash tools/check.sh
 ```
 
-The installer checks pinned SHA-256 digests for Rojo 7.7.1 and Luau 0.745. The script analyzes pure modules, compiles all 21 game scripts, runs 120 core tests, exercises actual UI/server/service source against explicit boundary fakes, checks generated config/map consistency, builds both place formats, and inspects embedded scripts and map geometry. Coverage includes 395 UI scenarios across five viewports, 480 model previews, 124 existing and 351 expanded service assertions, and 51 real server-entry handler assertions. The prize dispatcher, natural starts, missed contacts, save retries, sound cleanup, guidance, and landscape menu bounds are included. These are CLI checks, not Roblox engine playtests.
+The installer checks pinned SHA-256 digests for Rojo 7.7.1 and Luau 0.745. The script analyzes pure modules, compiles all 23 game scripts, runs 122 core tests, exercises actual UI/server/service source against explicit boundary fakes, checks generated config/map consistency, builds both place formats, and inspects embedded scripts and map geometry. Coverage includes 410 UI scenarios across five viewports, 480 model previews, 124 existing and 351 expanded service assertions, 58 real server-entry handler assertions, and 72 playlist/audio assertions. The prize dispatcher, natural starts, save retries, sound cleanup, ordered music looping, music preferences, guidance, and landscape bounds are included. These are CLI checks, not Roblox engine playtests.
 
 In the prepared cloud environment, reuse cached tools with:
 
@@ -96,6 +97,6 @@ export PATH="$PWD/.tools/bin:$PATH"
 rojo serve default.project.json --address 127.0.0.1 --port 34872
 ```
 
-Cloud loopback is not automatically reachable by desktop Studio; opening the built place is the direct workflow. No Roblox upload is performed. Sounds use bundled Roblox tap, jump, landing, water, and ping assets with short envelopes; map/pet art uses original primitives.
+Cloud loopback is not automatically reachable by desktop Studio; opening the built place is the direct workflow. No Roblox upload is performed. Audio combines the owner's [six selected Creator Store assets](docs/AUDIO.md) with bundled Roblox cues; map/pet art uses original primitives. Verify audio access and playback in the target experience.
 
 **Validation limit:** Linux CLI checks cannot establish real rendering, jump difficulty, touch/gamepad behavior, audio quality, live DataStore behavior, or purchase delivery. Complete the [Studio test pass](docs/STUDIO_TESTING.md) before public release. [Recovery provenance](docs/RECOVERY.md) records the earlier recovered version.

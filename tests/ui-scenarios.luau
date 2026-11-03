@@ -98,6 +98,16 @@ for _,size in {{320,568},{390,844},{844,390},{1280,720},{1920,1080}} do
   end
   ui:Close()
   if phase==1 then
+   ui:Open("Settings")
+   local function choose(caption)
+    for _,o in ui.Body:GetDescendants() do if o:IsA("TextButton") and o.Text==caption then o.Activated:Fire(); return end end
+    error("Missing settings control: "..caption)
+   end
+   choose("+"); assert(p.Settings.MusicVolume==75)
+   choose("−"); assert(p.Settings.MusicVolume==50)
+   choose("Music on · mute"); assert(not p.Settings.Music and p.Settings.SFX)
+   choose("Music off · enable"); assert(p.Settings.Music)
+   ui:Close(); count+=3
    ui:ShowReward({Course="Hop to the Top",RouteId="meadow_sky",Pet="meadow_sky",Amount=3500,XP=350,First=true})
    assert(ui.RewardFrame.Visible and ui.LastReward.Pet=="meadow_sky")
    local box=ui.RewardFrame; local w,h=box.Size.X.Offset,box.Size.Y.Offset

@@ -30,8 +30,13 @@ def main():
     boot_modules+=wrapped('BootStorage','src/server/Storage.luau','local os=bootOs; local script={Parent={SessionStore=true}}; local require=function() return Store end')
     boot_source='\n(function()\nlocal os=bootOs; local task=bootTasks; local require=bootRequire; local script=bootScript\n'+(ROOT/'src/server/init.server.luau').read_text()+'\nend)()\n'
     services+=(ROOT/'tests/bootstrap-scenarios.luau').read_text().replace('-- BOOT MODULES --',boot_modules).replace('-- BOOT SOURCE --',boot_source)
+    audio_prefix='local audioClock={Now=0}; local audioQueue={}; local audioTask={spawn=function(f) f() end,delay=function(t,f) table.insert(audioQueue,{At=audioClock.Now+t,Run=f}) end}\n'
+    audio_prefix+='services.SoundService=Instance.new("SoundService"); services.ContentProvider={PreloadAsync=function() end}; services.Debris={AddItem=function() end}\n'
+    audio_modules=wrapped('Audio','src/client/Audio.luau','local task=audioTask; local os={clock=function() return audioClock.Now end}')
+    audio_modules+=wrapped('Music','src/client/Music.luau','local os={clock=function() return audioClock.Now end}')
+    audio=base+audio_prefix+audio_modules+(ROOT/'tests/audio-scenarios.luau').read_text()
     (ROOT/'build').mkdir(exist_ok=True)
-    for name,content in [('ui',ui),('services',services)]:
+    for name,content in [('ui',ui),('services',services),('audio',audio)]:
         out=ROOT/'build'/f'{name}-harness.luau'; out.write_text(content)
         result=subprocess.run([luau,str(out)],cwd=ROOT,text=True,capture_output=True)
         for line in result.stdout.splitlines():
