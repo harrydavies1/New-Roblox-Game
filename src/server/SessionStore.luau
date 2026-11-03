@@ -26,12 +26,16 @@ function SessionStore.Load(self: any, userId: number): (any, string?)
 			end
 			blocked = false
 			local data = self.Options.Normalize(if old then old.Data else nil)
+			if self.Options.Prepare then
+				local prepare = self.Options.Prepare :: (any, number) -> ()
+				prepare(data, now)
+			end
 			return { Format = 1, Data = data, Session = { Id = self.Options.SessionId, ExpiresAt = now + self.Options.LeaseSeconds } }
 		end)
 	end)
 	if not ok then return nil, "load_failed" end
 	if blocked or not record or not record.Session or record.Session.Id ~= self.Options.SessionId then return nil, "session_locked" end
-	local entry = { Data = clone(record.Data), Busy = false, LeaseUntil = record.Session.ExpiresAt, Lost = false }
+	local entry = { Data = clone(record.Data), Busy = false, LeaseUntil = record.Session.ExpiresAt, Lost = false, LastSavedAt = now }
 	self.Entries[userId] = entry
 	return entry.Data, nil
 end
@@ -41,6 +45,12 @@ function SessionStore.Get(self: any, userId: number): (any, string?)
 	if entry.Lost or self.Options.Clock() >= entry.LeaseUntil then return nil, "session_expired" end
 	if entry.Busy then return nil, "busy" end
 	return entry.Data, nil
+end
+function SessionStore.Status(self: any, userId: number): any
+	local entry = self.Entries[userId]
+	if not entry then return { Loaded = false, Busy = false } end
+	return { Loaded = not entry.Lost and self.Options.Clock() < entry.LeaseUntil, Busy = entry.Busy,
+		World = entry.Data.CurrentWorld, LastSavedAt = entry.LastSavedAt, LeaseUntil = entry.LeaseUntil }
 end
 function SessionStore._write(self: any, userId: number, data: any, release: boolean): (boolean, string?)
 	local entry = self.Entries[userId]
@@ -56,6 +66,7 @@ function SessionStore._write(self: any, userId: number, data: any, release: bool
 	if lost then entry.Lost = true; return false, "session_lost" end
 	if not ok or not result then return false, "save_failed" end
 	entry.LeaseUntil = now + self.Options.LeaseSeconds
+	entry.LastSavedAt = now
 	return true, nil
 end
 function SessionStore.Save(self: any, userId: number, release: boolean?): (boolean, string?)
@@ -84,5 +95,17 @@ function SessionStore.CompletePurchase(self: any, userId: number, receiptId: any
 	if committed then entry.Data = nextData end
 	entry.Busy = false
 	return committed, saveReason
+end
+function SessionStore.CommitMutation(self: any, userId: number, mutate: (any) -> (boolean, any)): (boolean, any)
+	local data, reason = self:Get(userId)
+	if not data then return false, reason end
+	local entry = self.Entries[userId]; entry.Busy = true
+	local nextData = clone(data)
+	local ran, accepted, result = pcall(mutate, nextData)
+	if not ran or not accepted then entry.Busy = false; return false, if ran then result else "mutation_failed" end
+	local committed, failure = self:_write(userId, nextData, false)
+	if committed then entry.Data = nextData end
+	entry.Busy = false
+	return committed, if committed then result else failure
 end
 return SessionStore

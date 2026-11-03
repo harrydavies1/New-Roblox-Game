@@ -1,278 +1,466 @@
 --!nonstrict
-local Players=game:GetService("Players")
-local TweenService=game:GetService("TweenService")
-local UserInputService=game:GetService("UserInputService")
-local GuiService=game:GetService("GuiService")
-local UI={}
-local C={Ink=Color3.fromRGB(35,31,59),Muted=Color3.fromRGB(110,103,137),Paper=Color3.fromRGB(255,251,243),Card=Color3.fromRGB(244,239,255),Mint=Color3.fromRGB(111,233,186),Pink=Color3.fromRGB(255,153,206),Gold=Color3.fromRGB(255,220,124),Purple=Color3.fromRGB(188,164,255),Sky=Color3.fromRGB(130,222,255)}
-local function make(class,properties,parent)
- local o=Instance.new(class); for k,v in properties do o[k]=v end; o.Parent=parent; return o
+local Players = game:GetService("Players")
+local TweenService = game:GetService("TweenService")
+local UserInputService = game:GetService("UserInputService")
+local GuiService = game:GetService("GuiService")
+local RunService = game:GetService("RunService")
+
+local UI = {}
+local Theme = {
+	Background = Color3.fromRGB(22, 26, 33),
+	Surface = Color3.fromRGB(31, 36, 45),
+	Raised = Color3.fromRGB(40, 46, 56),
+	Line = Color3.fromRGB(59, 67, 80),
+	Text = Color3.fromRGB(232, 235, 238),
+	Secondary = Color3.fromRGB(157, 168, 182),
+	Accent = Color3.fromRGB(137, 180, 153),
+	AccentInk = Color3.fromRGB(21, 35, 27),
+	Gold = Color3.fromRGB(196, 170, 119),
+	Purple = Color3.fromRGB(165, 148, 190),
+	Danger = Color3.fromRGB(193, 127, 135),
+}
+local function create(class, properties, parent)
+	local item = Instance.new(class)
+	for key, value in properties do item[key] = value end
+	item.Parent = parent
+	return item
 end
-local function rounded(o,r) make("UICorner",{CornerRadius=UDim.new(0,r or 16)},o) end
-local function text(parent,value,size,pos,dimensions,color,bold)
- return make("TextLabel",{BackgroundTransparency=1,Text=value,TextSize=size,TextColor3=color or C.Ink,Font=if bold then Enum.Font.GothamBold else Enum.Font.GothamMedium,TextXAlignment=Enum.TextXAlignment.Left,TextWrapped=true,Position=pos,Size=dimensions},parent)
+local function round(item, radius)
+	create("UICorner", { CornerRadius = UDim.new(0, radius or 8) }, item)
 end
-local function button(parent,value,pos,size,color,callback)
- local b=make("TextButton",{Text=value,TextSize=14,Font=Enum.Font.GothamBold,TextColor3=C.Ink,Position=pos,Size=size,BackgroundColor3=color or C.Mint,BorderSizePixel=0,AutoButtonColor=true},parent)
- rounded(b,12); b.Activated:Connect(function() if b.Active and b.Interactable then callback() end end); return b
+local function outline(item)
+	create("UIStroke", { Color = Theme.Line, Thickness = 1, Transparency = 0.25 }, item)
 end
-local function bar(parent,y,color)
- local track=make("Frame",{Position=UDim2.fromOffset(16,y),Size=UDim2.new(1,-32,0,7),BackgroundColor3=Color3.fromRGB(223,218,235),BorderSizePixel=0},parent); rounded(track,5)
- local fill=make("Frame",{Size=UDim2.fromScale(0,1),BackgroundColor3=color,BorderSizePixel=0},track); rounded(fill,5); return fill
+local function label(parent, value, size, position, dimensions, color, bold)
+	return create("TextLabel", {
+		BackgroundTransparency = 1, Text = value, TextSize = size, TextColor3 = color or Theme.Text,
+		Font = if bold then Enum.Font.GothamBold else Enum.Font.GothamMedium,
+		TextXAlignment = Enum.TextXAlignment.Left, TextWrapped = true, Position = position, Size = dimensions,
+	}, parent)
 end
-function UI.new(config,engine,format,callbacks)
- local self={State=nil,Panel=nil,Bindings={},Tab="Aura",GoalsTab="Daily",PetWorld="meadow",Pending=false,ToastId=0}
- local screen=make("ScreenGui",{Name="MogHUD",ResetOnSpawn=false,IgnoreGuiInset=false,ZIndexBehavior=Enum.ZIndexBehavior.Sibling,DisplayOrder=10},Players.LocalPlayer:WaitForChild("PlayerGui")); self.Screen=screen
- local root=make("Frame",{BackgroundTransparency=1,Size=UDim2.fromScale(1,1)},screen)
- local title=text(root,"MOG / MODE",19,UDim2.fromOffset(20,6),UDim2.new(.6,-20,0,28),C.Paper,true)
- make("UIStroke",{Color=C.Ink,Thickness=1.2},title)
- local badge=text(root,"LOADING…",10,UDim2.new(1,-310,0,9),UDim2.fromOffset(290,22),C.Paper,true); badge.TextXAlignment=Enum.TextXAlignment.Right
- local resources=make("Frame",{BackgroundTransparency=1,Position=UDim2.fromOffset(16,40),Size=UDim2.new(1,-32,0,64)},root)
- local hud={}
- for i,d in {{"AURA",C.Gold},{"FLEX GEMS",C.Purple},{"LEVEL",C.Mint}} do
-  local card=make("Frame",{Position=UDim2.new((i-1)/3,3,0,0),Size=UDim2.new(1/3,-6,1,0),BackgroundColor3=C.Paper,BorderSizePixel=0},resources); rounded(card)
-  make("UIStroke",{Color=d[2],Thickness=2},card)
-  text(card,d[1],10,UDim2.fromOffset(12,7),UDim2.new(1,-24,0,16),C.Muted,true)
-  hud[i]=text(card,"—",23,UDim2.fromOffset(12,24),UDim2.new(1,if i<3 then -56 else -24,0,31),C.Ink,true)
-  if i<3 then button(card,"+",UDim2.new(1,-40,0,15),UDim2.fromOffset(32,36),d[2],function() self.Tab=if i==1 then "Aura" else "FlexGems"; self:Open("Shop") end) end
- end
- local xpTrack=make("Frame",{Position=UDim2.fromOffset(20,110),Size=UDim2.new(1,-40,0,6),BackgroundColor3=C.Ink,BackgroundTransparency=.3,BorderSizePixel=0},root); rounded(xpTrack,4)
- local xp=make("Frame",{Size=UDim2.fromScale(0,1),BackgroundColor3=C.Mint,BorderSizePixel=0},xpTrack); rounded(xp,4)
- local xpCaption=text(root,"",9,UDim2.fromOffset(20,116),UDim2.new(1,-40,0,12),C.Paper,true); xpCaption.TextXAlignment=Enum.TextXAlignment.Center
- make("UIStroke",{Color=C.Ink,Thickness=1},xpCaption)
- local nav=make("ScrollingFrame",{BackgroundTransparency=1,BorderSizePixel=0,CanvasSize=UDim2.new(),AutomaticCanvasSize=Enum.AutomaticSize.X,ScrollBarThickness=0},root)
- local navLayout=make("UIListLayout",{Padding=UDim.new(0,8),SortOrder=Enum.SortOrder.LayoutOrder},nav)
- local navButtons={}
- for i,d in {{"Pets","PAW",C.Pink},{"Worlds","MAP",C.Sky},{"Goals","GO!",C.Gold},{"Upgrades","UP",C.Mint},{"Shop","STYLE",C.Purple},{"Settings","…",C.Card}} do
-  local b=button(nav,d[2].."\n"..d[1],UDim2.new(),UDim2.fromOffset(84,64),d[3],function() self:Open(d[1]) end); b.LayoutOrder=i; b.TextSize=12; navButtons[i]=b
- end
- local clickButton=button(root,"MOG!",UDim2.new(.5,0,1,-20),UDim2.fromOffset(246,80),C.Gold,callbacks.Click)
- clickButton.AnchorPoint=Vector2.new(.5,1); clickButton.TextSize=21
- make("UIGradient",{Color=ColorSequence.new(C.Gold,Color3.fromRGB(255,177,126)),Rotation=22},clickButton)
- make("UIStroke",{Color=Color3.fromRGB(255,250,217),Thickness=3},clickButton)
- self.ClickScale=make("UIScale",{Scale=1},clickButton)
- local clickInfo=text(root,"Click / tap • F / X",12,UDim2.new(.5,-175,1,-14),UDim2.fromOffset(350,18),C.Paper,true); clickInfo.TextXAlignment=Enum.TextXAlignment.Center
- local hint=text(root,"Loading your adventure…",13,UDim2.new(0,20,1,-139),UDim2.new(1,-40,0,30),C.Paper,true); hint.TextXAlignment=Enum.TextXAlignment.Center
- make("UIStroke",{Color=C.Ink,Thickness=1.5},hint)
- local toast=text(root,"",16,UDim2.fromOffset(24,189),UDim2.new(1,-48,0,62),C.Paper,true)
- toast.BackgroundColor3=C.Ink; toast.BackgroundTransparency=.12; toast.TextXAlignment=Enum.TextXAlignment.Center; toast.Visible=false; toast.ZIndex=20; rounded(toast,18)
- local backdrop=make("TextButton",{Size=UDim2.fromScale(1,1),Text="",BackgroundColor3=C.Ink,BackgroundTransparency=.42,AutoButtonColor=false,Visible=false,ZIndex=5},root)
- local panel=make("Frame",{AnchorPoint=Vector2.new(.5,.5),Position=UDim2.new(.5,0,.5,26),Size=UDim2.fromOffset(760,520),BackgroundColor3=C.Paper,BorderSizePixel=0,Visible=false,ZIndex=6,Active=true},root); rounded(panel,24)
- make("UIStroke",{Color=C.Purple,Thickness=2},panel)
- local panelTitle=text(panel,"",24,UDim2.fromOffset(22,14),UDim2.new(1,-90,0,36),C.Ink,true)
- local close=button(panel,"×",UDim2.new(1,-58,0,14),UDim2.fromOffset(42,42),C.Card,function() self:Close() end); close.TextSize=27
- backdrop.Activated:Connect(function() self:Close() end)
- local body=make("ScrollingFrame",{BackgroundTransparency=1,BorderSizePixel=0,Position=UDim2.fromOffset(14,65),Size=UDim2.new(1,-28,1,-79),CanvasSize=UDim2.new(),AutomaticCanvasSize=Enum.AutomaticSize.Y,ScrollBarThickness=5,ScrollBarImageColor3=C.Purple,ScrollingDirection=Enum.ScrollingDirection.Y},panel)
- make("UIListLayout",{Padding=UDim.new(0,10),SortOrder=Enum.SortOrder.LayoutOrder},body)
- make("UIPadding",{PaddingBottom=UDim.new(0,8),PaddingRight=UDim.new(0,8)},body)
- self.PanelFrame=panel; self.Backdrop=backdrop; self.Body=body
- local confirm=make("Frame",{Size=UDim2.fromScale(1,1),BackgroundColor3=C.Ink,BackgroundTransparency=.2,Visible=false,ZIndex=30,Active=true},root); self.ConfirmFrame=confirm
- local confirmCard=make("Frame",{AnchorPoint=Vector2.new(.5,.5),Position=UDim2.fromScale(.5,.5),Size=UDim2.new(1,-48,0,260),BackgroundColor3=C.Paper,BorderSizePixel=0},confirm); rounded(confirmCard,22)
- make("UISizeConstraint",{MaxSize=Vector2.new(500,300)},confirmCard)
- local confirmTitle=text(confirmCard,"",23,UDim2.fromOffset(22,18),UDim2.new(1,-44,0,42),C.Ink,true)
- local confirmBody=text(confirmCard,"",15,UDim2.fromOffset(22,65),UDim2.new(1,-44,0,116),C.Muted,false)
- button(confirmCard,"Cancel",UDim2.new(0,20,1,-62),UDim2.new(.5,-30,0,44),C.Card,function() confirm.Visible=false; self.ConfirmAction=nil end)
- self.ConfirmAccept=button(confirmCard,"Confirm",UDim2.new(.5,10,1,-62),UDim2.new(.5,-30,0,44),C.Mint,function()
-  confirm.Visible=false; local callback=self.ConfirmAction; self.ConfirmAction=nil; if callback then callback() end
- end)
- local function resize()
-  local camera=workspace.CurrentCamera; if not camera then return end
-  local top,bottom=GuiService:GetGuiInset(); local width,height=camera.ViewportSize.X,camera.ViewportSize.Y-top.Y-bottom.Y
-  if root.AbsoluteSize and root.AbsoluteSize.X>0 and root.AbsoluteSize.Y>0 then width,height=root.AbsoluteSize.X,root.AbsoluteSize.Y end
-  local mobile=width<780
-  panel.Size=UDim2.fromOffset(math.min(760,width-28),math.max(205,math.min(550,height-154)))
-  nav.Position=if mobile then UDim2.fromOffset(16,130) else UDim2.fromOffset(20,147)
-  nav.Size=if mobile then UDim2.new(1,-32,0,57) else UDim2.new(0,90,1,-320)
-  nav.AutomaticCanvasSize=if mobile then Enum.AutomaticSize.X else Enum.AutomaticSize.Y
-  nav.ScrollingDirection=if mobile then Enum.ScrollingDirection.X else Enum.ScrollingDirection.Y
-  navLayout.FillDirection=if mobile then Enum.FillDirection.Horizontal else Enum.FillDirection.Vertical
-  for _,b in navButtons do b.Size=if mobile then UDim2.fromOffset(74,49) else UDim2.fromOffset(84,64) end
-  title.TextSize=if mobile then 15 else 19; title.Text=if width<570 then "MOG MODE" else "MOG / MODE"
-  badge.Size=UDim2.fromOffset(if mobile then 165 else 290,22); badge.Position=UDim2.new(1,if mobile then -183 else -310,0,9); badge.TextSize=if mobile then 9 else 10
-  for _,label in hud do label.TextSize=if mobile then 19 else 23 end
-  hint.Visible=height>=470; clickButton.Size=if height<470 then UDim2.fromOffset(206,59) else UDim2.fromOffset(246,80)
-  clickButton.TextSize=if height<470 then 17 else 21; toast.Position=UDim2.fromOffset(24,if mobile then 189 else 135)
- end
- local cameraConnection
- local function bindCamera()
-  if cameraConnection then cameraConnection:Disconnect() end
-  if workspace.CurrentCamera then cameraConnection=workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(resize) end; resize()
- end
- workspace:GetPropertyChangedSignal("CurrentCamera"):Connect(bindCamera); root:GetPropertyChangedSignal("AbsoluteSize"):Connect(resize); bindCamera()
- UserInputService.InputBegan:Connect(function(input,processed)
-  if processed then return end
-  if (input.KeyCode==Enum.KeyCode.F or input.KeyCode==Enum.KeyCode.ButtonX) and not self.Panel and not confirm.Visible then callbacks.Click() end
-  if input.KeyCode==Enum.KeyCode.ButtonB then self:Close() end
- end)
- function self:Toast(message,success)
-  self.ToastId+=1; local id=self.ToastId; toast.Text=message; toast.TextColor3=if success==false then C.Gold else C.Paper; toast.Visible=true
-  task.delay(3.5,function() if self.ToastId==id then toast.Visible=false end end)
- end
- function self:Confirm(heading,message,label,callback)
-  confirmTitle.Text=heading; confirmBody.Text=message; self.ConfirmAccept.Text=label; self.ConfirmAction=callback; confirm.Visible=true
-  if UserInputService.GamepadEnabled then GuiService.SelectedObject=self.ConfirmAccept end
- end
- function self:Close() self.Panel=nil; panel.Visible=false; backdrop.Visible=false; confirm.Visible=false; self.ConfirmAction=nil end
- function self:Open(name)
-  if not self.State then self:Toast("Your adventure is still loading."); return end
-  if self.Panel==name then self:Close(); return end
-  self.Panel=name; panel.Visible=true; backdrop.Visible=true; callbacks.Feedback("Panel"); self:Render()
- end
- function self:Request(name,payload)
-  if self.Pending or not self.State then return end; self.Pending=true
-  task.spawn(function()
-   local ok,result=pcall(callbacks.Action,name,payload); self.Pending=false
-   if not ok or type(result)~="table" then self:Toast("Connection interrupted. Please try again.",false); return end
-   if result.State then self:Update(result.State) end
-   if result.Message then self:Toast(result.Message,result.Ok) end
-   callbacks.Feedback(if result.Ok then "Success" else "Error"); if self.Panel then self:Render() end
-  end)
- end
- function self:Bind(callback) table.insert(self.Bindings,callback); callback(self.State) end
- function self:Note(message,height)
-  local label=text(body,message,13,UDim2.new(),UDim2.new(1,-4,0,height or 52),C.Muted,false); label.LayoutOrder=#body:GetChildren(); return label
- end
- function self:Card(heading,description,color,height)
-  local card=make("Frame",{Size=UDim2.new(1,-4,0,height or 137),BackgroundColor3=C.Card,BorderSizePixel=0,LayoutOrder=#body:GetChildren()},body); rounded(card)
-  local stripe=make("Frame",{Position=UDim2.fromOffset(0,12),Size=UDim2.new(0,5,1,-24),BackgroundColor3=color,BorderSizePixel=0},card); rounded(stripe,3)
-  text(card,heading,17,UDim2.fromOffset(16,9),UDim2.new(1,-30,0,27),C.Ink,true)
-  local label=text(card,description,12,UDim2.fromOffset(16,37),UDim2.new(1,-30,0,if (height or 137)>=170 then 48 else 32),C.Muted,false); label.Name="Description"
-  return card
- end
- function self:CardButton(card,label,color,callback) return button(card,label,UDim2.new(0,16,1,-54),UDim2.new(1,-32,0,42),color,callback) end
- function self:Tabs(entries,selected,onSelect)
-  local frame=make("Frame",{Size=UDim2.new(1,-4,0,44),BackgroundTransparency=1,LayoutOrder=#body:GetChildren()},body)
-  for i,entry in entries do
-   local b=button(frame,entry.Label,UDim2.new((i-1)/#entries,2,0,0),UDim2.new(1/#entries,-4,0,42),if selected==entry.Id then C.Purple else C.Card,function() onSelect(entry.Id); self:Render() end); b.TextSize=if #entries>3 then 11 else 13
-  end
- end
- function self:OfferPurchase(key,name,description)
-  local offer=self.State.Catalog[key]; if not offer or not offer.Enabled then return end
-  self:Confirm(name,description.."\nListed price: R$ "..offer.Price..". Roblox's next window shows the final price. This purchase is optional.","Continue to Roblox",function() self:Request("Purchase",{Id=key}) end)
- end
- function self:Render()
-  self.Bindings={}; for _,child in body:GetChildren() do if child:IsA("GuiObject") then child:Destroy() end end
-  panelTitle.Text=self.Panel or ""; body.CanvasPosition=Vector2.zero; local p=self.State; if not p then return end
-  if self.Panel=="Pets" then
-   self:Note("Adopt exactly the pet you choose with Aura. Train to level 10. Equipped bonuses add together; no random eggs.",48)
-   local tabs={}; for _,world in config.Worlds do table.insert(tabs,{Id=world.Id,Label=world.Icon.." "..({meadow="Meadow",candy="Gym",coral="Reef",cosmos="Stars"})[world.Id]}) end
-   self:Tabs(tabs,self.PetWorld,function(id) self.PetWorld=id end)
-   local summary=self:Note("",28); self:Bind(function(s) summary.Text=#s.Equipped.."/"..s.EquipSlots.." equipped • "..string.format("%.2f",s.PetMultiplier).."× pet multiplier" end)
-   for _,pet in config.Pets do
-    if pet.World~=self.PetWorld then continue end
-    local card=self:Card(pet.Name,pet.Description,Color3.fromHex(pet.Color),154)
-    for _,label in card:GetChildren() do if label:IsA("TextLabel") then label.Position=UDim2.fromOffset(86,label.Position.Y.Offset); label.Size=UDim2.new(1,-102,0,label.Size.Y.Offset) end end
-    local viewport=make("ViewportFrame",{Position=UDim2.fromOffset(12,7),Size=UDim2.fromOffset(64,64),BackgroundTransparency=1,Ambient=Color3.fromRGB(220,215,245),LightColor=Color3.fromRGB(255,242,214),LightDirection=Vector3.new(-1,-1,-1)},card)
-    callbacks.PetPreview(viewport,pet,p.Pets[pet.Id] or 1)
-    local detail=text(card,"",12,UDim2.fromOffset(16,70),UDim2.new(1,-32,0,20),C.Muted,true)
-    local buy=button(card,"",UDim2.new(0,16,1,-54),UDim2.new(.66,-23,0,42),C.Gold,function() self:Request("BuyPet",{Id=pet.Id}) end)
-    local equip=button(card,"",UDim2.new(.66,0,1,-54),UDim2.new(.34,-16,0,42),C.Mint,function() self:Request("EquipPet",{Id=pet.Id}) end)
-    self:Bind(function(s)
-     local level=s.Pets[pet.Id] or 0; detail.Text="Lv "..level.." • "..format.percent(engine:PetBonus(pet.Id,math.max(1,level))).." click bonus"
-     buy.Text=if not s.Worlds[pet.World] then "Island locked" elseif level>=config.MaxPetLevel then "Fully trained" else (if level==0 then "Adopt • " else "Train • ")..format.number(engine:PetCost(pet.Id,level)).." Aura"
-     buy.Active=s.Worlds[pet.World]==true and level<config.MaxPetLevel
-     equip.Visible=level>0; equip.Text=if table.find(s.Equipped,pet.Id) then "Rest" else "Equip"
-    end)
-   end
-  elseif self.Panel=="Worlds" then
-   self:Note("Four islands. Four sky routes. Twelve extremely unserious pets. Every new island multiplies your Aura.",46)
-   for _,world in config.Worlds do
-    local card=self:Card(world.Icon.." / "..world.Name,world.Tagline.." • "..world.Multiplier.."× Aura",Color3.fromHex(world.Color),137)
-    local b=self:CardButton(card,"",Color3.fromHex(world.Color),function()
-     if self.State.Worlds[world.Id] then self:Request("Travel",{Id=world.Id})
-     else self:Confirm("Discover "..world.Name.."?","Spend "..format.number(world.Cost).." Aura to permanently unlock this island. Requires level "..world.Level.." and the previous island.","Discover",function() self:Request("UnlockWorld",{Id=world.Id}) end) end
-    end)
-    self:Bind(function(s) b.Text=if s.CurrentWorld==world.Id then "You are here" elseif s.Worlds[world.Id] then "Travel to island" else "Discover • "..format.number(world.Cost).." Aura • Lv "..world.Level; b.Active=s.CurrentWorld~=world.Id end)
-   end
-  elseif self.Panel=="Goals" then
-   self:Tabs({{Id="Daily",Label="Daily discoveries"},{Id="Journal",Label="Discovery journal"}},self.GoalsTab,function(tab) self.GoalsTab=tab end)
-   self:Note(if self.GoalsTab=="Daily" then "New goals at 00:00 UTC. No login streaks to lose. World crystals regrow after 45 seconds." else "Nine permanent journal stamps and two free titles. These milestones never reset when you rebirth.",48)
-   local journal=self.GoalsTab=="Journal"
-   for _,goal in (if journal then config.Milestones else config.Quests) do
-    local card=self:Card(goal.Name,goal.Description.." • "..format.number(goal.Aura).." Aura + "..goal.XP.." XP"..(if goal.Cosmetic then " + free title" else ""),if journal then C.Sky else C.Gold,152)
-    local fill=bar(card,76,C.Mint)
-    local b=self:CardButton(card,"",if journal then C.Sky else C.Gold,function() self:Request(if journal then "ClaimMilestone" else "ClaimQuest",{Id=goal.Id}) end)
-    self:Bind(function(s)
-     local amount=math.min(goal.Target,if journal then engine:MilestoneProgress(s,goal.Id) else s.Daily[goal.Counter])
-     local claimed=if journal then s.Milestones[goal.Id] else s.Daily.Claimed[goal.Id]
-     fill.Size=UDim2.fromScale(amount/goal.Target,1); b.Text=if claimed then "Reward collected" elseif amount>=goal.Target then "Collect reward" else format.number(amount).." / "..format.number(goal.Target)
-     b.Active=not claimed and amount>=goal.Target
-    end)
-   end
-  elseif self.Panel=="Upgrades" then
-   local card=self:Card("Upgrade your Mog Power","Earn more Aura from every click and crystal. Your Aura, your pace.",C.Mint,137)
-   local b=self:CardButton(card,"",C.Mint,function() self:Request("BuyUpgrade",{}) end)
-   self:Bind(function(s) b.Text=if s.Upgrade>=config.MaxUpgrade then "Maximum Mog Power reached" else "Power "..(s.Upgrade+1).." → "..(s.Upgrade+2).." • "..format.number(s.UpgradeCost).." Aura"; b.Active=s.Upgrade<config.MaxUpgrade end)
-   local rebirth=self:Card("Enter your next era","Rebirth resets ALL Aura and Mog Power upgrades. Keep islands, pets, level, styles, journal stamps, and Flex Gems. Gain another permanent +25% click bonus.",C.Purple,186)
-   local info=text(rebirth,"",12,UDim2.fromOffset(16,91),UDim2.new(1,-32,0,24),C.Muted,true)
-   local rb=self:CardButton(rebirth,"",C.Purple,function()
-    self:Confirm("Start a new era?","Reset ALL "..format.number(self.State.Aura).." Aura and Mog Power upgrades. Keep pets, islands, level, cosmetics, journal stamps, and Flex Gems. Gain another permanent +25% click bonus.","Rebirth",function() self:Request("Rebirth",{}) end)
-   end)
-   self:Bind(function(s) info.Text=s.Rebirths.."/"..config.MaxRebirths.." rebirths • permanent +"..(s.Rebirths*25).."%"; rb.Text=if s.Rebirths>=config.MaxRebirths then "Rebirth summit reached" else "Rebirth • requires "..format.number(s.RebirthCost).." Aura"; rb.Active=s.Rebirths<config.MaxRebirths end)
-   self:Note("Every XP level pays 40 × your new level in Aura. Every island and pet can be earned through play.")
-  elseif self.Panel=="Shop" then
-   self:Tabs({{Id="Aura",Label="Aura"},{Id="FlexGems",Label="Flex Gems"},{Id="Cosmetics",Label="Styles"},{Id="Passes",Label="Passes"}},self.Tab,function(tab) self.Tab=tab end)
-   self:Note(if p.Sandbox then "STUDIO SANDBOX • progress is temporary and real purchases are disabled." else "Optional purchases use Robux. Roblox shows the final price before you confirm. Only buy with the account owner's permission.",48)
-   if self.Tab=="Aura" or self.Tab=="FlexGems" then
-    self:Note(if self.Tab=="Aura" then "Aura is also earned freely by clicking, levelling up, and exploring. These packs are optional." else "Flex Gems are paid currency available only through Robux purchases. They buy guaranteed cosmetics and never come from gameplay rewards.",53)
-    for _,product in config.Products do
-     if product.Currency~=self.Tab then continue end
-     local card=self:Card(product.Name,product.Description,if self.Tab=="Aura" then C.Gold else C.Purple,137)
-     local b=self:CardButton(card,"",if self.Tab=="Aura" then C.Gold else C.Purple,function() self:OfferPurchase(product.Key,product.Name,product.Description) end)
-     self:Bind(function(s) local offer=s.Catalog[product.Key]; b.Text=if offer and offer.Enabled then "Buy • R$ "..offer.Price else "Currently unavailable"; b.Active=offer~=nil and offer.Enabled==true end)
-    end
-   elseif self.Tab=="Passes" then
-    for _,pass in config.Passes do
-     local card=self:Card(pass.Name,pass.Description,C.Mint,137)
-     local b=self:CardButton(card,"",C.Mint,function() self:OfferPurchase(pass.Key,pass.Name,pass.Description) end)
-     self:Bind(function(s) local offer=s.Catalog[pass.Key]; b.Text=if s.Passes[pass.Key] then "Owned • thank you!" elseif offer and offer.Enabled then "Permanent pass • R$ "..offer.Price else "Currently unavailable"; b.Active=not s.Passes[pass.Key] and offer~=nil and offer.Enabled==true end)
-    end
-   else
-    self:Note("Choose exactly what you get. Styles are permanent. Equip one trail, orbit effect, and title at a time.",46)
-    for _,item in config.Cosmetics do
-     local card=self:Card(item.Name.." / "..item.Kind,item.Description,Color3.fromHex(item.Color),137)
-     local b=self:CardButton(card,"",Color3.fromHex(item.Color),function()
-      local owned=self.State.Cosmetics[item.Id] or (item.Pass and self.State.Passes[item.Pass])
-      if owned then self:Request("EquipCosmetic",{Id=item.Id})
-      elseif item.Pass then self.Tab="Passes"; self:Render()
-      elseif item.Earned then self.GoalsTab="Journal"; self:Open("Goals")
-      else self:Confirm("Get "..item.Name.."?","Spend "..item.Cost.." Flex Gems on this permanent "..item.Kind..". Flex Gems are paid cosmetic currency.","Spend "..item.Cost.." Flex Gems",function() self:Request("BuyCosmetic",{Id=item.Id}) end) end
-     end)
-     self:Bind(function(s)
-      local owned=s.Cosmetics[item.Id] or (item.Pass and s.Passes[item.Pass])
-      b.Text=if owned then (if s.ActiveCosmetics[item.Kind]==item.Id then "Equipped • click to remove" else "Equip style") elseif item.Pass then "View Mog Patron pass" elseif item.Earned then "Earn free in the journal" else item.Cost.." Flex Gems • guaranteed style"
-     end)
-    end
-   end
-  elseif self.Panel=="Settings" then
-   self:Note("Adjust sound and extra animation independently. Settings save with your progress.",45)
-   for _,option in {{Id="SFX",Name="Sound effects",Description="Soft clicks, crystals, menu, upgrade, and level sounds."},{Id="Effects",Name="Extra animations",Description="Reward pop-ups, confetti, crystal motion, pet bobbing, and mog poses."}} do
-    local card=self:Card(option.Name,option.Description,C.Sky,137)
-    local b=self:CardButton(card,"",C.Sky,function() self:Request("Setting",{Id=option.Id,Value=not self.State.Settings[option.Id]}) end)
-    self:Bind(function(s) b.Text=if s.Settings[option.Id] then "On • click to turn off" else "Off • click to turn on" end)
-   end
-   self:Note("CONTROLS\nClick/tap MOG!, press F, or use controller X. Move and jump with Roblox's standard controls. Use proximity prompts at crystals, shops, and portals. On gamepad, use UI selection for menus.",108)
-   self:Note("A break is always okay. Progress saves automatically. Purchases are optional and no login streaks expire.",58)
-  end
-  if UserInputService.GamepadEnabled then GuiService.SelectedObject=close end
- end
- function self:Update(s)
-  self.State=s; hud[1].Text=format.number(s.Aura); hud[2].Text=format.number(s.FlexGems); hud[3].Text=tostring(s.Level)
-  TweenService:Create(xp,TweenInfo.new(.18),{Size=UDim2.fromScale(s.XP/s.XPRequired,1)}):Play()
-  xpCaption.Text=engine:Rank(s.Level).." • "..format.number(s.XP).." / "..format.number(s.XPRequired).." XP"
-  badge.Text=if s.Sandbox then "STUDIO • NO SAVING / PURCHASES" else string.upper(engine.Worlds[s.CurrentWorld].Name)
-  clickButton.Text="MOG!\n+"..format.number(s.ClickValue).." AURA"; clickInfo.Text="MOG METER "..(s.TotalClicks%config.BurstEvery).."/"..config.BurstEvery.." • click / F / X"
-  hint.Text=if s.TotalClicks<25 then "Make your first Aura burst! "..s.TotalClicks.."/25 clicks" elseif not next(s.Pets) then "Adopt Bunny on Mute in Pets to start your hype squad!" elseif s.Upgrade<3 then "Time for a fit check: upgrade Mog Power." elseif not s.Worlds.candy then "Next stop: Brotein Boulevard • Lv 5 + 3.5K Aura" else "Collect crystals • train your hype squad • explore the next island"
-  local ready=0
-  for _,q in config.Quests do if not s.Daily.Claimed[q.Id] and s.Daily[q.Counter]>=q.Target then ready+=1 end end
-  for _,q in config.Milestones do if not s.Milestones[q.Id] and engine:MilestoneProgress(s,q.Id)>=q.Target then ready+=1 end end
-  navButtons[3].Text="GO!\nGoals"..(if ready>0 then " ("..ready..")" else "")
-  for _,binding in self.Bindings do binding(s) end
- end
- function self:Pulse()
-  if self.State and not self.State.Settings.Effects then return end
-  self.ClickScale.Scale=.94; TweenService:Create(self.ClickScale,TweenInfo.new(.18,Enum.EasingStyle.Back),{Scale=1}):Play()
- end
- return self
+local function button(parent, value, position, dimensions, primary, callback)
+	local item = create("TextButton", {
+		Text = value, TextSize = 12, Font = Enum.Font.GothamBold,
+		TextColor3 = if primary then Theme.AccentInk else Theme.Text,
+		BackgroundColor3 = if primary then Theme.Accent else Theme.Raised,
+		Position = position, Size = dimensions, BorderSizePixel = 0, AutoButtonColor = true,
+	}, parent)
+	round(item, 7)
+	item.Activated:Connect(function() if item.Active and item.Interactable then callback() end end)
+	return item
+end
+local function progress(parent, position, dimensions, color)
+	local track = create("Frame", { Position = position, Size = dimensions, BackgroundColor3 = Theme.Line, BorderSizePixel = 0, ClipsDescendants = true }, parent)
+	round(track, 2)
+	local fill = create("Frame", { Size = UDim2.fromScale(0, 1), BackgroundColor3 = color or Theme.Accent, BorderSizePixel = 0 }, track)
+	round(fill, 2)
+	return fill
+end
+local function timeLeft(seconds)
+	seconds = math.max(0, math.ceil(seconds))
+	if seconds >= 3600 then return string.format("%dh %dm", math.floor(seconds / 3600), math.floor(seconds % 3600 / 60)) end
+	return string.format("%dm %ds", math.floor(seconds / 60), seconds % 60)
+end
+
+function UI.new(config, engine, format, callbacks)
+	local self = {
+		State = nil, Panel = nil, Bindings = {}, Tab = "Boosts", PetWorld = "meadow", GoalsTab = "Daily",
+		CourseWorld = "meadow", SelectedCourse = nil, Pending = false, ToastId = 0, ReceivedAt = 0,
+	}
+	local screen = create("ScreenGui", { Name = "MogHUD", ResetOnSpawn = false, IgnoreGuiInset = false, ZIndexBehavior = Enum.ZIndexBehavior.Sibling, DisplayOrder = 10 }, Players.LocalPlayer:WaitForChild("PlayerGui"))
+	self.Screen = screen
+	local root = create("Frame", { Name = "SafeArea", BackgroundTransparency = 1, Size = UDim2.fromScale(1, 1) }, screen)
+	local counters = create("Frame", { Name = "Counters", Position = UDim2.fromOffset(12, 8), Size = UDim2.fromOffset(326, 47), BackgroundColor3 = Theme.Background, BackgroundTransparency = 0.08, BorderSizePixel = 0 }, root)
+	round(counters, 9); outline(counters)
+	local aura = label(counters, "—", 17, UDim2.new(0, 10, 0, 18), UDim2.new(0.45, -15, 0, 23), Theme.Text, true)
+	label(counters, "AURA", 8, UDim2.fromOffset(10, 5), UDim2.new(0.45, -15, 0, 12), Theme.Gold, true)
+	local gems = label(counters, "—", 16, UDim2.new(0.45, 8, 0, 18), UDim2.new(0.31, -12, 0, 23), Theme.Text, true)
+	label(counters, "FLEX GEMS", 8, UDim2.new(0.45, 8, 0, 5), UDim2.new(0.31, -12, 0, 12), Theme.Purple, true)
+	local level = label(counters, "LV 1", 12, UDim2.new(0.76, 4, 0, 5), UDim2.new(0.24, -9, 0, 19), Theme.Text, true)
+	local rank = label(counters, "", 8, UDim2.new(0.76, 4, 0, 24), UDim2.new(0.24, -9, 0, 15), Theme.Secondary, false)
+	rank.TextWrapped = false; rank.TextTruncate = Enum.TextTruncate.AtEnd
+	local xp = progress(counters, UDim2.new(0, 1, 1, -3), UDim2.new(1, -2, 0, 3), Theme.Accent)
+	local saveBadge = label(root, "Loading…", 9, UDim2.fromOffset(12, 57), UDim2.fromOffset(128, 18), Theme.Secondary, false)
+	-- Manual saving lives in the full-size Settings controls.
+	local worldBadge = label(root, "", 9, UDim2.fromOffset(145, 59), UDim2.fromOffset(180, 14), Theme.Secondary, false)
+	local menuButton = button(root, "MENU", UDim2.new(1, -58, 0, 8), UDim2.fromOffset(46, 47), false, function() self:ToggleMenu() end)
+	menuButton.TextSize = 9
+	local objective = button(root, "", UDim2.fromOffset(12, 81), UDim2.fromOffset(220, 68), false, function()
+		if self.State and self.State.ObbyRun then self.SelectedCourse = self.State.ObbyRun.Id; self.CourseWorld = engine.Obbies[self.SelectedCourse].World; self:Open("Obbies")
+		elseif self.State and self.State.Objective then
+			local goal = self.State.Objective
+			if goal.Course then self.SelectedCourse = goal.Course; self.CourseWorld = engine.Obbies[goal.Course].World end
+			self:Open(goal.Panel)
+		end
+	end)
+	objective.BackgroundColor3 = Theme.Background; objective.BackgroundTransparency = 0.08; outline(objective)
+	local objectiveTitle = label(objective, "YOUR NEXT MOVE", 11, UDim2.fromOffset(10, 7), UDim2.new(1, -28, 0, 18), Theme.Text, true)
+	objectiveTitle.TextTruncate = Enum.TextTruncate.AtEnd
+	local objectiveDetail = label(objective, "Click for Aura. Beat courses for XP.", 10, UDim2.fromOffset(10, 27), UDim2.new(1, -25, 0, 28), Theme.Secondary, false)
+	label(objective, "›", 20, UDim2.new(1, -20, 0, 16), UDim2.fromOffset(12, 26), Theme.Accent, true)
+	local objectiveFill = progress(objective, UDim2.new(0, 1, 1, -3), UDim2.new(1, -2, 0, 3), Theme.Accent)
+	local clickButton = button(root, "", UDim2.new(0.5, 0, 1, -20), UDim2.fromOffset(156, 56), false, callbacks.Click)
+	clickButton.AnchorPoint = Vector2.new(0.5, 1); clickButton.BackgroundColor3 = Theme.Surface; outline(clickButton)
+	label(clickButton, "MOG", 16, UDim2.fromOffset(10, 7), UDim2.new(1, -20, 0, 21), Theme.Text, true).TextXAlignment = Enum.TextXAlignment.Center
+	local clickAmount = label(clickButton, "0 AURA / TAP", 9, UDim2.fromOffset(8, 29), UDim2.new(1, -16, 0, 15), Theme.Accent, false)
+	clickAmount.TextXAlignment = Enum.TextXAlignment.Center
+	local cooldownFill = progress(clickButton, UDim2.new(0, 1, 1, -3), UDim2.new(1, -2, 0, 3), Theme.Accent); cooldownFill.Size = UDim2.fromScale(1, 1)
+	self.ClickScale = create("UIScale", { Scale = 1 }, clickButton)
+	local upgradeQuick = button(root, "POWER", UDim2.new(0.5, -133, 1, -26), UDim2.fromOffset(46, 44), false, function() self:Open("Upgrades") end)
+	upgradeQuick.AnchorPoint = Vector2.new(0, 1); upgradeQuick.TextSize = 8
+	local shopQuick = button(root, "SHOP", UDim2.new(0.5, 87, 1, -26), UDim2.fromOffset(46, 44), false, function() self:Open("Shop") end)
+	shopQuick.AnchorPoint = Vector2.new(0, 1); shopQuick.TextSize = 8
+	local meter = label(root, "F / X", 8, UDim2.new(0.5, -78, 1, -17), UDim2.fromOffset(156, 13), Theme.Secondary, false); meter.TextXAlignment = Enum.TextXAlignment.Center
+	self.HudElements = { counters, menuButton, objective, clickButton, saveBadge, worldBadge, upgradeQuick, shopQuick, meter }
+
+	local menuDismiss = create("TextButton", { Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Text = "", Visible = false, ZIndex = 3 }, root)
+	local menu = create("Frame", { Position = UDim2.new(1, -240, 0, 62), Size = UDim2.fromOffset(228, 366), BackgroundColor3 = Theme.Background, BorderSizePixel = 0, Visible = false, ZIndex = 4 }, root)
+	round(menu, 9); outline(menu)
+	label(menu, "MOG MODE", 11, UDim2.fromOffset(14, 9), UDim2.new(1, -28, 0, 24), Theme.Secondary, true)
+	local menuItems = {}
+	for index, item in { { "Obbies", "Courses", "OBBY" }, { "Upgrades", "Mog Power", "UP" }, { "Pets", "Hype squad", "PET" }, { "Worlds", "Zones", "MAP" }, { "Goals", "Tasks & daily reward", "GOAL" }, { "Shop", "Shop", "SHOP" }, { "Settings", "Settings & saving", "SET" } } do
+		local b = button(menu, item[2], UDim2.fromOffset(9, 37 + (index - 1) * 45), UDim2.fromOffset(210, 44), false, function() self:Open(item[1]) end)
+		b.BackgroundTransparency = 1; b.TextXAlignment = Enum.TextXAlignment.Left; b.TextSize = 12
+		menuItems[item[1]] = b
+	end
+	function self:ToggleMenu()
+		menu.Visible = not menu.Visible; menuDismiss.Visible = menu.Visible
+		if menu.Visible then callbacks.Feedback("Panel"); if UserInputService.GamepadEnabled then GuiService.SelectedObject = menuItems.Obbies end end
+	end
+	menuDismiss.Activated:Connect(function() menu.Visible = false; menuDismiss.Visible = false end)
+	local toast = label(root, "", 11, UDim2.new(1, -300, 0, 80), UDim2.fromOffset(288, 48), Theme.Text, false)
+	toast.BackgroundColor3 = Theme.Surface; toast.BackgroundTransparency = 0.04; toast.TextXAlignment = Enum.TextXAlignment.Center; toast.Visible = false; toast.ZIndex = 20
+	round(toast, 8); outline(toast)
+
+	local backdrop = create("TextButton", { Size = UDim2.fromScale(1, 1), Text = "", BackgroundColor3 = Theme.Background, BackgroundTransparency = 0.48, AutoButtonColor = false, Visible = false, ZIndex = 5 }, root)
+	local panel = create("Frame", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromOffset(620, 520), BackgroundColor3 = Theme.Background, BorderSizePixel = 0, Visible = false, Active = true, ZIndex = 6 }, root)
+	round(panel, 10); outline(panel)
+	local panelTitle = label(panel, "", 19, UDim2.fromOffset(18, 12), UDim2.new(1, -82, 0, 32), Theme.Text, true)
+	local close = button(panel, "×", UDim2.new(1, -54, 0, 8), UDim2.fromOffset(44, 44), false, function() self:Close() end); close.TextSize = 22
+	backdrop.Activated:Connect(function() self:Close() end)
+	local body = create("ScrollingFrame", { BackgroundTransparency = 1, BorderSizePixel = 0, Position = UDim2.fromOffset(14, 57), Size = UDim2.new(1, -28, 1, -71), CanvasSize = UDim2.new(), AutomaticCanvasSize = Enum.AutomaticSize.Y, ScrollBarThickness = 3, ScrollBarImageColor3 = Theme.Line, ScrollingDirection = Enum.ScrollingDirection.Y }, panel)
+	create("UIListLayout", { Padding = UDim.new(0, 8), SortOrder = Enum.SortOrder.LayoutOrder }, body)
+	create("UIPadding", { PaddingBottom = UDim.new(0, 8), PaddingRight = UDim.new(0, 7) }, body)
+	self.PanelFrame = panel; self.Body = body; self.Backdrop = backdrop
+	local confirm = create("Frame", { Size = UDim2.fromScale(1, 1), BackgroundColor3 = Theme.Background, BackgroundTransparency = 0.2, Visible = false, Active = true, ZIndex = 30 }, root)
+	self.ConfirmFrame = confirm
+	local confirmCard = create("Frame", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.new(1, -36, 0, 256), BackgroundColor3 = Theme.Surface, BorderSizePixel = 0 }, confirm)
+	create("UISizeConstraint", { MaxSize = Vector2.new(420, 280) }, confirmCard); round(confirmCard, 10); outline(confirmCard)
+	local confirmTitle = label(confirmCard, "", 18, UDim2.fromOffset(18, 14), UDim2.new(1, -36, 0, 40), Theme.Text, true)
+	local confirmBody = label(confirmCard, "", 12, UDim2.fromOffset(18, 61), UDim2.new(1, -36, 0, 115), Theme.Secondary, false)
+	button(confirmCard, "Cancel", UDim2.new(0, 18, 1, -62), UDim2.new(0.5, -27, 0, 44), false, function() confirm.Visible = false; self.ConfirmAction = nil end)
+	self.ConfirmAccept = button(confirmCard, "Confirm", UDim2.new(0.5, 9, 1, -62), UDim2.new(0.5, -27, 0, 44), true, function()
+		confirm.Visible = false; local callback = self.ConfirmAction; self.ConfirmAction = nil; if callback then callback() end
+	end)
+	local function resize()
+		local camera = workspace.CurrentCamera; if not camera then return end
+		local top, bottom = GuiService:GetGuiInset()
+		local width, height = camera.ViewportSize.X, camera.ViewportSize.Y - top.Y - bottom.Y
+		if root.AbsoluteSize and root.AbsoluteSize.X > 0 and root.AbsoluteSize.Y > 0 then width, height = root.AbsoluteSize.X, root.AbsoluteSize.Y end
+		self.Viewport = Vector2.new(width, height)
+		local mobile = width < 620
+		counters.Size = UDim2.fromOffset(math.min(326, width - 82), 47)
+		aura.TextSize = if mobile then 15 else 17; gems.TextSize = if mobile then 14 else 16
+		panel.Size = UDim2.fromOffset(math.min(620, width - 24), math.max(210, math.min(550, height - 36)))
+		objective.Size = UDim2.fromOffset(if mobile then 194 else 220, 68)
+		upgradeQuick.Visible = not mobile; shopQuick.Visible = not mobile
+		worldBadge.Visible = width >= 620
+		toast.Size = UDim2.fromOffset(math.min(288, width - 32), 48)
+		toast.Position = if mobile then UDim2.new(0.5, -math.min(288, width - 32) / 2, 0, 157) else UDim2.new(1, -300, 0, 80)
+		if height < 450 then objective.Visible = false else objective.Visible = true end
+	end
+	local cameraConnection
+	local function bindCamera()
+		if cameraConnection then cameraConnection:Disconnect() end
+		if workspace.CurrentCamera then cameraConnection = workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(resize) end
+		resize()
+	end
+	root:GetPropertyChangedSignal("AbsoluteSize"):Connect(resize)
+	workspace:GetPropertyChangedSignal("CurrentCamera"):Connect(bindCamera); bindCamera()
+	UserInputService.InputBegan:Connect(function(input, processed)
+		if processed then return end
+		if (input.KeyCode == Enum.KeyCode.F or input.KeyCode == Enum.KeyCode.ButtonX) and not self.Panel and not confirm.Visible then callbacks.Click() end
+		if input.KeyCode == Enum.KeyCode.ButtonB then self:Close() end
+	end)
+
+	function self:Now()
+		return if self.State then self.State.ServerTime + (os.clock() - self.ReceivedAt) else 0
+	end
+	function self:SetSaveStatus(state)
+		local captions = { saved = "Saved", pending = "Auto-save pending", saving = "Saving…", retry = "Save retrying", preview = "Preview · saving off" }
+		saveBadge.Text = captions[state] or "Loading…"
+		saveBadge.TextColor3 = if state == "preview" or state == "retry" then Theme.Gold else Theme.Secondary
+	end
+	function self:Toast(message, success)
+		self.ToastId += 1; local id = self.ToastId
+		toast.Text = message; toast.TextColor3 = if success == false then Theme.Gold else Theme.Text; toast.Visible = true
+		task.delay(3, function() if self.ToastId == id then toast.Visible = false end end)
+	end
+	function self:Confirm(heading, message, caption, callback)
+		confirmTitle.Text = heading; confirmBody.Text = message; self.ConfirmAccept.Text = caption; self.ConfirmAction = callback; confirm.Visible = true
+		if UserInputService.GamepadEnabled then GuiService.SelectedObject = self.ConfirmAccept end
+	end
+	function self:Close()
+		self.Panel = nil; panel.Visible = false; backdrop.Visible = false; confirm.Visible = false; self.ConfirmAction = nil
+		menu.Visible = false; menuDismiss.Visible = false
+	end
+	function self:Open(name)
+		if not self.State then self:Toast("Your save is still loading."); return end
+		if self.Panel == name then self:Close(); return end
+		self.Panel = name; panel.Visible = true; backdrop.Visible = true; menu.Visible = false; menuDismiss.Visible = false
+		callbacks.Feedback("Panel"); self:Render()
+	end
+	function self:Request(name, payload)
+		if self.Pending or not self.State then return end
+		self.Pending = true
+		task.spawn(function()
+			local ok, result = pcall(callbacks.Action, name, payload); self.Pending = false
+			if not ok or type(result) ~= "table" then self:Toast("Connection interrupted. Please try again.", false); return end
+			if result.State then self:Update(result.State) end
+			if result.Message then self:Toast(result.Message, result.Ok) end
+			callbacks.Feedback(if not result.Ok then "Error" elseif name == "BuyUpgrade" or name == "BuyPet" then "Upgrade" else "Success")
+			if result.Ok and (name == "StartObby" or name == "Travel" or name == "UnlockWorld" or name == "LeaveObby") then self:Close()
+			elseif self.Panel then self:Render() end
+		end)
+	end
+	function self:Bind(callback)
+		table.insert(self.Bindings, callback); callback(self.State)
+	end
+	function self:Note(message, height)
+		local note = label(body, message, 11, UDim2.new(), UDim2.new(1, -4, 0, height or 46), Theme.Secondary, false)
+		note.LayoutOrder = #body:GetChildren()
+		return note
+	end
+	function self:Card(heading, description, height)
+		local card = create("Frame", { Size = UDim2.new(1, -4, 0, height or 135), BackgroundColor3 = Theme.Surface, BorderSizePixel = 0, LayoutOrder = #body:GetChildren() }, body)
+		round(card, 8); outline(card)
+		label(card, heading, 14, UDim2.fromOffset(12, 9), UDim2.new(1, -24, 0, 23), Theme.Text, true)
+		local detail = label(card, description, 11, UDim2.fromOffset(12, 35), UDim2.new(1, -24, 0, if (height or 135) >= 175 then 61 else 36), Theme.Secondary, false)
+		detail.Name = "Description"
+		return card
+	end
+	function self:CardButton(card, caption, primary, callback)
+		return button(card, caption, UDim2.new(0, 12, 1, -56), UDim2.new(1, -24, 0, 44), primary, callback)
+	end
+	function self:Tabs(entries, selected, onSelect)
+		local frame = create("Frame", { Size = UDim2.new(1, -4, 0, 44), BackgroundTransparency = 1, LayoutOrder = #body:GetChildren() }, body)
+		for index, entry in entries do
+			local b = button(frame, entry.Label, UDim2.new((index - 1) / #entries, 2, 0, 0), UDim2.new(1 / #entries, -4, 0, 44), entry.Id == selected, function() onSelect(entry.Id); self:Render() end)
+			b.TextSize = if #entries >= 5 then 9 else 11
+		end
+	end
+	function self:WorldTabs(selected, onSelect)
+		local tabs = {}
+		for _, world in config.Worlds do table.insert(tabs, { Id = world.Id, Label = world.Icon .. " " .. ({ meadow = "Meadow", candy = "Gym", coral = "Reef", cosmos = "Summit", citadel = "Citadel" })[world.Id] }) end
+		self:Tabs(tabs, selected, onSelect)
+	end
+	function self:OfferPurchase(key, name, description)
+		local offer = self.State.Catalog[key]
+		if not offer or not offer.Enabled then self:Toast("This offer is unavailable.", false); return end
+		self:Confirm(name, description .. "\nListed price: R$ " .. offer.Price .. ". Roblox's next window shows the final charge. This is optional.", "Continue to Roblox", function() self:Request("Purchase", { Id = key }) end)
+	end
+
+	function self:Render()
+		self.Bindings = {}
+		for _, child in body:GetChildren() do if child:IsA("GuiObject") then child:Destroy() end end
+		body.CanvasPosition = Vector2.zero
+		panelTitle.Text = ({ Obbies = "Courses", Upgrades = "Mog Power", Pets = "Hype squad", Worlds = "Zones", Goals = "Tasks & rewards" })[self.Panel] or self.Panel or ""
+		local p = self.State; if not p then return end
+		if self.Panel == "Obbies" then
+			self:Note("The loop: MOG for Aura → upgrade power → beat courses for XP → unlock zones. Hard-course first clears earn exclusive pets.", 52)
+			if self.SelectedCourse and engine.Obbies[self.SelectedCourse] then self.CourseWorld = engine.Obbies[self.SelectedCourse].World end
+			self:WorldTabs(self.CourseWorld, function(id) self.CourseWorld = id; self.SelectedCourse = nil end)
+			if p.ObbyRun then
+				local active = self:Card(p.ObbyRun.Name .. " · " .. p.ObbyRun.Stage .. "/" .. p.ObbyRun.Count, "For this run, falling returns you to checkpoint " .. p.ObbyRun.Checkpoint .. ". Cleared-course rewards are saved.", 145)
+				local retry = button(active, "Retry checkpoint", UDim2.new(0, 12, 1, -56), UDim2.new(0.55, -18, 0, 44), false, function() self:Request("RetryObby", {}) end)
+				button(active, "Leave course", UDim2.new(0.55, 0, 1, -56), UDim2.new(0.45, -12, 0, 44), false, function() self:Request("LeaveObby", {}) end)
+			end
+			for _, route in config.Obbies do
+				if route.World ~= self.CourseWorld then continue end
+				local first = not p.Obby.FirstClear[route.Id]
+				local pet = route.PetReward and engine.Pets[route.PetReward]
+				local badge = if route.Difficulty == "warmup" then "WARM-UP" elseif route.Difficulty == "sky" then "HARD" else "EXPERT"
+				local rewardText = format.number(if first then route.FirstAura else route.RepeatAura) .. " Aura + " .. (if first then route.FirstXP else route.RepeatXP) .. " XP"
+				local description = route.Count .. " jumps · checkpoints every " .. route.CheckpointEvery .. "\n" .. rewardText
+				if pet then description ..= if first then "\nFirst clear: " .. pet.Name .. " (guaranteed)" else "\nExclusive pet earned. Repeats award Aura + XP." end
+				local card = self:Card(badge .. " / " .. route.Name, description, 180)
+				local b = self:CardButton(card, "", true, function()
+					if not self.State.Worlds[route.World] then self:Open("Worlds")
+					elseif self.State.CurrentWorld ~= route.World then self:Request("Travel", { Id = route.World })
+					elseif self.State.ObbyRun and self.State.ObbyRun.Id ~= route.Id then
+						self:Confirm("Start a different course?", "This replaces the active run. Collected Aura and earned pets stay. Your current run checkpoint will be lost.", "Start course", function() self:Request("StartObby", { Id = route.Id }) end)
+					else self:Request("StartObby", { Id = route.Id }) end
+				end)
+				self:Bind(function(s)
+					local seconds = (s.Obby.NextRewardAt[route.Id] or 0) - self:Now()
+					b.Text = if not s.Worlds[route.World] then "Discover this zone first" elseif s.CurrentWorld ~= route.World then "Travel to " .. engine.Worlds[route.World].Name elseif s.ObbyRun and s.ObbyRun.Id == route.Id then "Restart from the beginning" elseif seconds > 0 and s.Obby.FirstClear[route.Id] then "Practice · rewards in " .. timeLeft(seconds) else "Start course"
+				end)
+			end
+		elseif self.Panel == "Pets" then
+			self:Note("Aura pets take saving up. HARD / EXPERT pets are earned only by clearing their course. Train owned pets up to Lv 10.", 48)
+			self:WorldTabs(self.PetWorld, function(id) self.PetWorld = id end)
+			local summary = self:Note("", 26)
+			self:Bind(function(s) summary.Text = #s.Equipped .. "/" .. s.EquipSlots .. " equipped · " .. string.format("%.2f", s.PetMultiplier) .. "× pet bonus" end)
+			for _, pet in config.Pets do
+				if pet.World ~= self.PetWorld then continue end
+				local card = self:Card(pet.Name, if pet.ObbyOnly then "EARNED PET · " .. engine.Obbies[pet.ObbyOnly].Name else pet.Description, 159)
+				for _, item in card:GetChildren() do if item:IsA("TextLabel") then item.Position = UDim2.fromOffset(78, item.Position.Y.Offset); item.Size = UDim2.new(1, -90, 0, item.Size.Y.Offset) end end
+				local viewport = create("ViewportFrame", { Position = UDim2.fromOffset(8, 6), Size = UDim2.fromOffset(62, 62), BackgroundTransparency = 1, Ambient = Color3.fromRGB(160, 170, 185), LightColor = Color3.fromRGB(225, 219, 200), LightDirection = Vector3.new(-1, -1, -1) }, card)
+				callbacks.PetPreview(viewport, pet, p.Pets[pet.Id] or 1)
+				local info = label(card, "", 10, UDim2.fromOffset(12, 75), UDim2.new(1, -24, 0, 18), Theme.Secondary, false)
+				local buy = button(card, "", UDim2.new(0, 12, 1, -56), UDim2.new(0.67, -18, 0, 44), true, function()
+					if pet.ObbyOnly and not self.State.Pets[pet.Id] then self.SelectedCourse = pet.ObbyOnly; self:Open("Obbies")
+					else self:Request("BuyPet", { Id = pet.Id }) end
+				end)
+				local equip = button(card, "", UDim2.new(0.67, 0, 1, -56), UDim2.new(0.33, -12, 0, 44), false, function() self:Request("EquipPet", { Id = pet.Id }) end)
+				self:Bind(function(s)
+					local petLevel = s.Pets[pet.Id] or 0
+					info.Text = "Lv " .. petLevel .. " · " .. format.percent(engine:PetBonus(pet.Id, math.max(1, petLevel))) .. " click bonus"
+					buy.Text = if pet.ObbyOnly and petLevel == 0 then "View earning course" elseif not s.Worlds[pet.World] then "Zone locked" elseif petLevel >= config.MaxPetLevel then "Fully trained" else (if petLevel == 0 then "Adopt · " else "Train · ") .. format.number(engine:PetCost(pet.Id, petLevel)) .. " Aura"
+					buy.Active = (pet.ObbyOnly ~= nil and petLevel == 0) or (s.Worlds[pet.World] == true and petLevel < config.MaxPetLevel)
+					equip.Visible = petLevel > 0; equip.Text = if table.find(s.Equipped, pet.Id) then "Rest" else "Equip"
+				end)
+			end
+		elseif self.Panel == "Worlds" then
+			self:Note("One starter and four unlockable zones. Each has its own courses, earned pets, and Aura multiplier. Unlocking also takes you there.", 49)
+			for _, world in config.Worlds do
+				local card = self:Card(world.Icon .. " / " .. world.Name, world.Tagline .. "\n" .. world.Multiplier .. "× Aura · Lv " .. world.Level .. " · " .. format.number(world.Cost) .. " Aura", 149)
+				local b = self:CardButton(card, "", true, function()
+					if self.State.Worlds[world.Id] then self:Request("Travel", { Id = world.Id })
+					else self:Confirm("Discover " .. world.Name .. "?", "Spend " .. format.number(world.Cost) .. " Aura to unlock and travel. Requires level " .. world.Level .. " and the previous zone.", "Unlock & travel", function() self:Request("UnlockWorld", { Id = world.Id }) end) end
+				end)
+				self:Bind(function(s) b.Text = if s.CurrentWorld == world.Id then "You are here" elseif s.Worlds[world.Id] then "Travel" else "Unlock & travel · " .. format.number(world.Cost) .. " Aura"; b.Active = s.CurrentWorld ~= world.Id end)
+			end
+		elseif self.Panel == "Goals" then
+			self:Tabs({ { Id = "Daily", Label = "Daily tasks" }, { Id = "Journal", Label = "Journal" }, { Id = "Login", Label = "Login reward" } }, self.GoalsTab, function(tab) self.GoalsTab = tab end)
+			if self.GoalsTab == "Login" then
+				self:Note("No reward on your first day. Your first claim unlocks 24 hours after your first saved visit. Later claims are 24 hours apart; no streak is lost.", 66)
+				local card = self:Card("Return reward", "Earn Aura and 40 XP. Flex Gems are never part of login rewards.", 154)
+				local due = label(card, "", 11, UDim2.fromOffset(12, 79), UDim2.new(1, -24, 0, 18), Theme.Gold, true)
+				local b = self:CardButton(card, "", true, function() self:Request("ClaimLogin", {}) end)
+				self:Bind(function(s)
+					local status = engine:LoginStatus(s, self:Now())
+					due.Text = if not s.Save.Persistent then "Persistent saving is required for login rewards." elseif status.Ready then "Ready to collect" else "Available in " .. timeLeft(status.NextAt - self:Now())
+					b.Text = "Collect return " .. (status.Claims + 1) .. " · " .. format.number(status.Aura) .. " Aura"
+					b.Active = s.Save.Persistent and status.Ready
+				end)
+			else
+				local journal = self.GoalsTab == "Journal"
+				self:Note(if journal then "Permanent milestones survive rebirth. Earn two free titles through your journal." else "Tasks refresh at 00:00 UTC. Courses are the main XP route.", 42)
+				for _, goal in (if journal then config.Milestones else config.Quests) do
+					local card = self:Card(goal.Name, goal.Description .. "\n" .. format.number(goal.Aura) .. " Aura + " .. goal.XP .. " XP" .. (if goal.Cosmetic then " + earned title" else ""), 159)
+					local fill = progress(card, UDim2.fromOffset(12, 82), UDim2.new(1, -24, 0, 4), Theme.Accent)
+					local b = self:CardButton(card, "", true, function() self:Request(if journal then "ClaimMilestone" else "ClaimQuest", { Id = goal.Id }) end)
+					self:Bind(function(s)
+						local amount = math.min(goal.Target, if journal then engine:MilestoneProgress(s, goal.Id) else s.Daily[goal.Counter])
+						local claimed = if journal then s.Milestones[goal.Id] else s.Daily.Claimed[goal.Id]
+						fill.Size = UDim2.fromScale(amount / goal.Target, 1)
+						b.Text = if claimed then "Collected" elseif amount >= goal.Target then "Collect reward" else format.number(amount) .. " / " .. format.number(goal.Target)
+						b.Active = not claimed and amount >= goal.Target
+					end)
+				end
+			end
+		elseif self.Panel == "Upgrades" then
+			local card = self:Card("Mog Power", "Earn more Aura per click and crystal. XP comes mostly from courses.", 135)
+			local b = self:CardButton(card, "", true, function() self:Request("BuyUpgrade", {}) end)
+			self:Bind(function(s) b.Text = if s.Upgrade >= config.MaxUpgrade then "Maximum power" else "Power " .. (s.Upgrade + 1) .. " → " .. (s.Upgrade + 2) .. " · " .. format.number(s.UpgradeCost) .. " Aura"; b.Active = s.Upgrade < config.MaxUpgrade end)
+			local rebirth = self:Card("Next era", "Resets ALL Aura and Mog Power. Keep pets, zones, level, journal stamps, login progress, styles, and Flex Gems. Gain another permanent +25% click bonus.", 190)
+			local info = label(rebirth, "", 10, UDim2.fromOffset(12, 100), UDim2.new(1, -24, 0, 18), Theme.Secondary, false)
+			local rb = self:CardButton(rebirth, "", false, function()
+				self:Confirm("Rebirth?", "Reset ALL " .. format.number(self.State.Aura) .. " Aura and click upgrades. Other progression stays. Gain another permanent +25% click bonus.", "Rebirth", function() self:Request("Rebirth", {}) end)
+			end)
+			self:Bind(function(s) info.Text = s.Rebirths .. "/" .. config.MaxRebirths .. " rebirths · +" .. s.Rebirths * 25 .. "% permanent bonus"; rb.Text = "Requires " .. format.number(s.RebirthCost) .. " Aura"; rb.Active = s.Rebirths < config.MaxRebirths end)
+			local optional = self:Card("Optional boosts", "Temporary 2× Aura / XP and permanent passes are in the shop. All courses and earned pets remain available through play.", 145)
+			self:CardButton(optional, "View optional shop", false, function() self.Tab = "Boosts"; self:Open("Shop") end)
+		elseif self.Panel == "Shop" then
+			self:Tabs({ { Id = "Boosts", Label = "Boosts" }, { Id = "Aura", Label = "Aura" }, { Id = "FlexGems", Label = "Gems" }, { Id = "Cosmetics", Label = "Styles" }, { Id = "Passes", Label = "Passes" } }, self.Tab, function(tab) self.Tab = tab end)
+			self:Note(if p.Sandbox or not next(p.Catalog) then "Purchases are unavailable in this preview. No Robux are charged." else "Optional Robux purchases. Review the exact reward and Roblox's final price. Only buy with the account owner's permission.", 54)
+			if self.Tab == "Boosts" or self.Tab == "Aura" or self.Tab == "FlexGems" then
+				self:Note(if self.Tab == "Boosts" then "Timers persist and run while offline. Extra purchases add time. Hard-course pets must still be earned." elseif self.Tab == "Aura" then "Aura is also earned through play. Optional packs do not count as earned Aura for goals." else "Flex Gems are paid cosmetic currency. They are available only through Robux purchases.", 48)
+				for _, product in config.Products do
+					if (self.Tab == "Boosts" and product.Kind ~= "Boost") or (self.Tab ~= "Boosts" and product.Currency ~= self.Tab) then continue end
+					local card = self:Card(product.Name, product.Description, 139)
+					local b = self:CardButton(card, "", false, function() self:OfferPurchase(product.Key, product.Name, product.Description) end)
+					self:Bind(function(s) local offer = s.Catalog[product.Key]; b.Text = if offer and offer.Enabled then "View purchase · R$ " .. offer.Price else "Currently unavailable"; b.Active = offer ~= nil and offer.Enabled == true end)
+				end
+			elseif self.Tab == "Passes" then
+				for _, pass in config.Passes do
+					local card = self:Card(pass.Name, pass.Description, 139)
+					local b = self:CardButton(card, "", false, function() self:OfferPurchase(pass.Key, pass.Name, pass.Description) end)
+					self:Bind(function(s) local offer = s.Catalog[pass.Key]; b.Text = if s.Passes[pass.Key] then "Owned" elseif offer and offer.Enabled then "Permanent pass · R$ " .. offer.Price else "Currently unavailable"; b.Active = not s.Passes[pass.Key] and offer ~= nil and offer.Enabled == true end)
+				end
+			else
+				self:Note("Permanent, guaranteed styles. Equip one trail, orbit, and title at a time.", 35)
+				for _, item in config.Cosmetics do
+					local card = self:Card(item.Name .. " / " .. item.Kind, item.Description, 139)
+					local b = self:CardButton(card, "", false, function()
+						local owned = self.State.Cosmetics[item.Id] or (item.Pass and self.State.Passes[item.Pass])
+						if owned then self:Request("EquipCosmetic", { Id = item.Id })
+						elseif item.Pass then self.Tab = "Passes"; self:Render()
+						elseif item.Earned then self.GoalsTab = "Journal"; self:Open("Goals")
+						else self:Confirm("Get " .. item.Name .. "?", "Spend " .. item.Cost .. " Flex Gems on this permanent style. Flex Gems are paid cosmetic currency.", "Spend " .. item.Cost .. " Flex Gems", function() self:Request("BuyCosmetic", { Id = item.Id }) end) end
+					end)
+					self:Bind(function(s)
+						local owned = s.Cosmetics[item.Id] or (item.Pass and s.Passes[item.Pass])
+						b.Text = if owned then (if s.ActiveCosmetics[item.Kind] == item.Id then "Equipped · remove" else "Equip") elseif item.Pass then "View Mog Patron pass" elseif item.Earned then "Earn free in the journal" else item.Cost .. " Flex Gems · guaranteed style"
+					end)
+				end
+			end
+		elseif self.Panel == "Settings" then
+			local saving = self:Card("Progress saving", if p.Save.Persistent then "Saved automatically every 30 seconds, on course clears, login claims, purchases, and leaving." else "Studio preview: progress cannot persist. Publish a test place and enable Studio API access to test cloud saving.", 171)
+			local status = label(saving, "", 10, UDim2.fromOffset(12, 93), UDim2.new(1, -24, 0, 18), Theme.Gold, false)
+			self:Bind(function(s) status.Text = if s.Save.Persistent then "Storage: cloud · " .. s.Save.State else "Storage: temporary preview" end)
+			self:CardButton(saving, "Save now", false, function() self:Request("SaveNow", {}) end)
+			for _, option in { { Id = "SFX", Name = "Sound effects", Description = "Dry taps, checkpoint cues, reward chimes, and travel sounds." }, { Id = "Effects", Name = "Extra animation", Description = "Pet bobbing, small reward pop-ups, particles, and mog poses." } } do
+				local card = self:Card(option.Name, option.Description, 135)
+				local b = self:CardButton(card, "", false, function() self:Request("Setting", { Id = option.Id, Value = not self.State.Settings[option.Id] }) end)
+				self:Bind(function(s) b.Text = if s.Settings[option.Id] then "On · turn off" else "Off · turn on" end)
+			end
+			self:Note("Tap MOG / press F / controller X. Move with Roblox controls. The 0.2-second server cooldown caps click speed at 5 per second. Course rewards require every platform in order.", 72)
+		end
+		if UserInputService.GamepadEnabled then GuiService.SelectedObject = close end
+	end
+
+	function self:Update(state)
+		self.State = state; self.ReceivedAt = os.clock()
+		aura.Text = format.number(state.Aura); gems.Text = format.number(state.FlexGems); level.Text = "LV " .. state.Level
+		rank.Text = engine:Rank(state.Level)
+		TweenService:Create(xp, TweenInfo.new(0.15), { Size = UDim2.fromScale(state.XP / state.XPRequired, 1) }):Play()
+		worldBadge.Text = string.upper(engine.Worlds[state.CurrentWorld].Name)
+		clickAmount.Text = "+" .. format.number(state.ClickValue) .. " AURA / TAP"
+		local boosts = {}
+		if state.Boosts.AuraUntil > self:Now() then table.insert(boosts, "Aura 2× " .. timeLeft(state.Boosts.AuraUntil - self:Now())) end
+		if state.Boosts.XPUntil > self:Now() then table.insert(boosts, "XP 2× " .. timeLeft(state.Boosts.XPUntil - self:Now())) end
+		meter.Text = if #boosts > 0 then table.concat(boosts, " · ") else (state.TotalClicks % config.BurstEvery) .. "/" .. config.BurstEvery .. " MOG · F / X"
+		self:SetSaveStatus(state.Save.State)
+		if state.ObbyRun then
+			objectiveTitle.Text = state.ObbyRun.Name .. " · " .. state.ObbyRun.Stage .. "/" .. state.ObbyRun.Count
+			objectiveDetail.Text = "Touch each platform. Checkpoint " .. state.ObbyRun.Checkpoint .. " · tap for course controls"
+			objectiveFill.Size = UDim2.fromScale(state.ObbyRun.Stage / state.ObbyRun.Count, 1)
+		else
+			objectiveTitle.Text = state.Objective.Title; objectiveDetail.Text = state.Objective.Detail
+			objectiveFill.Size = UDim2.fromScale(math.clamp(state.Objective.Progress, 0, 1), 1)
+		end
+		local ready = 0
+		for _, goal in config.Quests do if not state.Daily.Claimed[goal.Id] and state.Daily[goal.Counter] >= goal.Target then ready += 1 end end
+		for _, goal in config.Milestones do if not state.Milestones[goal.Id] and engine:MilestoneProgress(state, goal.Id) >= goal.Target then ready += 1 end end
+		if state.Save.Persistent and engine:LoginStatus(state, self:Now()).Ready then ready += 1 end
+		menuItems.Goals.Text = "Tasks & daily reward" .. (if ready > 0 then " (" .. ready .. ")" else "")
+		for _, binding in self.Bindings do binding(state) end
+	end
+	function self:Pulse()
+		cooldownFill.Size = UDim2.fromScale(0, 1)
+		TweenService:Create(cooldownFill, TweenInfo.new(config.ClickCooldown, Enum.EasingStyle.Linear), { Size = UDim2.fromScale(1, 1) }):Play()
+		if self.State and self.State.Settings.Effects then
+			self.ClickScale.Scale = 0.98
+			TweenService:Create(self.ClickScale, TweenInfo.new(0.1), { Scale = 1 }):Play()
+		end
+	end
+	local elapsed = 0
+	RunService.Heartbeat:Connect(function(dt)
+		elapsed += dt
+		if elapsed >= 1 then elapsed = 0; if self.State and self.Panel then for _, binding in self.Bindings do binding(self.State) end end end
+	end)
+	return self
 end
 return UI

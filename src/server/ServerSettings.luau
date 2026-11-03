@@ -3,8 +3,9 @@
 -- Developer Products must belong to this experience. Game Passes are separate IDs.
 return {
 	DataStoreName = "MogMode_Profiles_v1",
-	StudioUseLiveDataStores = false, -- safe sandbox: no saving and no real purchases
-	AutosaveSeconds = 40,
+	StudioUseLiveDataStores = true, -- requires a published test place and Studio API access
+	AllowStudioSandboxFallback = true, -- visibly labelled preview if Studio API access is unavailable
+	AutosaveSeconds = 30,
 	LeaseSeconds = 180,
 	ProductIds = {
 		aura_small = 0,
@@ -13,6 +14,10 @@ return {
 		flex_gems_small = 0,
 		flex_gems_medium = 0,
 		flex_gems_large = 0,
+		aura_vault = 0,
+		aura_empire = 0,
+		aura_boost = 0,
+		xp_boost = 0,
 	},
 	PassIds = { DoubleAura = 0, ExtraPets = 0, VIP = 0 },
 }

@@ -6,9 +6,13 @@ local function check(value,message) assert(value,message); checks+=1 end
 local function object(class,name,parent) local o=Instance.new(class); o.Name=name; o.Parent=parent; return o end
 local users={}; local players=object("Players","Players",nil)
 function players:GetPlayerByUserId(id) return users[id] end
+function players:GetPlayerFromCharacter(character)
+ for _,player in users do if player.Character==character then return player end end
+ return nil
+end
 services.Players=players
 services.CollectionService={Tags={},AddTag=function(self,o,tag) self.Tags[o]=tag end}
-services.RunService={PreSimulation=signal()}
+services.RunService={PreSimulation=signal(),Heartbeat=signal()}
 local marketplace={Failure=false,Ownership={},Prompts={},PromptGamePassPurchaseFinished=signal()}
 function marketplace:GetProductInfo(id,infoType) if self.Failure then error("simulated unavailable API") end; check(id>0 and infoType~=nil); return {PriceInRobux=49,IsForSale=true} end
 function marketplace:UserOwnsGamePassAsync(user,id) return self.Ownership[user.."/"..id]==true end
@@ -17,20 +21,51 @@ function marketplace:PromptGamePassPurchase(player,id) table.insert(self.Prompts
 services.MarketplaceService=marketplace
 local warn=function() end
 local poseClock={Now=0}
+local obbyClock={Now=0}
+local audioClock={Now=0}
+local audioQueue={}
+local audioTask={spawn=function(f) f() end,delay=function(delay,f) table.insert(audioQueue,{At=audioClock.Now+delay,Run=f}) end}
+services.SoundService=object("SoundService","SoundService",nil)
+services.ContentProvider={PreloadAsync=function() end}
+services.Debris={AddItem=function() end}
+local storageMode={Studio=true,ReadAllowed=false,InitAllowed=true}
+local storageRecords={}
+local storageAdapter={}
+function storageAdapter:GetAsync(key) if not storageMode.ReadAllowed then error("Studio API access disabled") end; return storageRecords[key] end
+function storageAdapter:UpdateAsync(key,f) local value=f(Engine.Clone(storageRecords[key])); if value then storageRecords[key]=Engine.Clone(value) end; return Engine.Clone(value) end
+services.DataStoreService={GetDataStore=function(_,name) if not storageMode.InitAllowed then error("service unavailable") end; return storageAdapter end}
+local guid=0
+services.HttpService={GenerateGUID=function() guid+=1; return "contract-"..guid end}
+function services.RunService:IsStudio() return storageMode.Studio end
+local ObbyRun=require("../src/server/ObbyRun")
 -- MODULES --
 local map=object("Model","MogWorld",workspace)
-for _,w in Config.Worlds do
+for wi,w in Config.Worlds do
  local island=object("Folder",w.Id,map); local markers=object("Folder","Markers",island)
  local spawn=object("Part","Spawn",markers); spawn.Position=Vector3.new(w.Origin[1],5.5,w.Origin[2]+29)
- for _,key in {"PetShop","Quests","Rebirth"} do if key=="Rebirth" and w.Id~="meadow" then continue end; local m=object("Part",key,markers); m.Position=Vector3.zero end
+ for _,key in {"PetShop","Quests","Rebirth","Shop"} do if key=="Rebirth" and w.Id~="meadow" then continue end; local m=object("Part",key,markers); m.Position=Vector3.zero end
  local shards=object("Folder","Shards",island)
- for i=1,13 do local crystal=object("Part",if i==13 then "Bonus_01" else string.format("Shard_%02d",i),shards); crystal.Position=Vector3.new(w.Origin[1]+54,8,w.Origin[2]) end
+ for i=1,12 do local crystal=object("Part",string.format("Shard_%02d",i),shards); crystal.Position=Vector3.new(w.Origin[1]+54,8,w.Origin[2]) end
  local portals=object("Folder","Portals",island)
- for _,target in Config.Worlds do if (w.Id=="meadow" and target.Id~="meadow") or (w.Id~="meadow" and target.Id=="meadow") then local p=object("Part",target.Id,portals); p.Position=Vector3.zero end end
+ local nextWorld=Config.Worlds[wi+1]
+ if nextWorld then local gate=object("Part",nextWorld.Id,portals); gate.Position=Vector3.zero end
+ if wi>1 then local gate=object("Part","meadow",portals); gate.Position=Vector3.zero end
+ local courses=object("Folder","Obbies",island)
+ for _,route in Config.Obbies do
+  if route.World~=w.Id then continue end
+  local course=object("Folder",route.Id,courses)
+  local start=object("Part","Start",course); start.Position=Vector3.new(w.Origin[1]+112,6.4,0)
+  local steps=object("Folder","Steps",course); local hazards=object("Folder","Hazards",course)
+  for i=1,route.Count do
+   local step=object("Part",string.format("%02d",i),steps); step.Position=Vector3.new(w.Origin[1]+112+i*route.Spacing,6.4+i,0); step.Size=Vector3.new(route.Width,1.1,route.Width)
+  end
+  local hazard=object("Part","Hazard",hazards); hazard.Position=steps["02"].Position+Vector3.new(2,.7,0)
+  local marker=object("Part","Course_"..route.Id,markers); marker.Position=Vector3.new(w.Origin[1]+88,7,0)
+ end
 end
 local function newPlayer(id)
  local p=object("Player","Player"..id,players); p.UserId=id; users[id]=p
- p.Character=object("Model","Character",workspace); local root=object("Part","HumanoidRootPart",p.Character); root.Position=Vector3.new(54,8,0)
+ p.Character=object("Model","Character",workspace); local root=object("Part","HumanoidRootPart",p.Character); root.Position=Vector3.new(54,8,0); root.Anchored=false
  local h=object("Humanoid","Humanoid",p.Character); h.Health=100; return p
 end
 local p=newPlayer(1)
@@ -51,15 +86,15 @@ local world=WorldService.new(Config,{
 local tags,prompts=0,0
 for o,tag in services.CollectionService.Tags do check(tag=="MogCrystal" and o:GetAttribute("CrystalId")~=nil); tags+=1 end
 for _,o in map:GetDescendants() do if o.ClassName=="ProximityPrompt" then prompts+=1 end end
-check(tags==52 and prompts==67)
+check(tags==60 and prompts==84)
 map.meadow.Shards.Shard_01.CollectPrompt.Triggered:Fire(p); check(collected==1)
 local root=p.Character.HumanoidRootPart; root.Position=Vector3.new(500,8,500); map.meadow.Shards.Shard_01.CollectPrompt.Triggered:Fire(p); check(collected==1)
 root.Position=Vector3.zero; map.meadow.Portals.candy:FindFirstChildOfClass("ProximityPrompt").Triggered:Fire(p); map.meadow.Markers.PetShop:FindFirstChildOfClass("ProximityPrompt").Triggered:Fire(p); check(traveled==1 and opened==1)
-check(world:Teleport(p,"cosmos")); check(root.Position.X==620 and root.Position.Z==649 and root.Position.Y==9.5); check(not world:Teleport(p,"forged"))
+check(world:Teleport(p,"cosmos")); check(root.Position.X==18000 and root.Position.Z==29 and root.Position.Y==9.5); check(not root.Anchored and p._streamRequests[1].Anchored); check(not world:Teleport(p,"forged"))
 p.Character.Humanoid.Health=0; check(not world:Teleport(p,"meadow")); p.Character.Humanoid.Health=100
 local records={}; local adapter={Fail=false}
 function adapter:UpdateAsync(key,f) if self.Fail then error("simulated outage") end; local r=f(Engine.Clone(records[key])); if r then records[key]=Engine.Clone(r) end; return Engine.Clone(r) end
-local store=Store.new(adapter,{Clock=function() return 1000 end,SessionId="test",LeaseSeconds=180,Normalize=function(raw) return Engine:Normalize(raw) end}); check(store:Load(1)~=nil)
+local store=Store.new(adapter,{Clock=function() return 1000 end,SessionId="test",LeaseSeconds=180,Normalize=function(raw) return Engine:Normalize(raw) end,Prepare=function(profile,now) Engine:Initialize(profile,now) end}); check(store:Load(1)~=nil)
 local settings={ProductIds={},PassIds={}}
 for i,v in Config.Products do settings.ProductIds[v.Key]=5000+i end
 for i,v in Config.Passes do settings.PassIds[v.Key]=9000+i end

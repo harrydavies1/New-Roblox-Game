@@ -7,10 +7,11 @@ function WorldService.new(config, callbacks)
  for _, world in config.Worlds do
   local island = self.Map:WaitForChild(world.Id)
   for _, crystal in island.Shards:GetChildren() do
+   crystal:SetAttribute("WorldId",world.Id)
    crystal:SetAttribute("CrystalId",world.Id.."/"..crystal.Name)
    CollectionService:AddTag(crystal,"MogCrystal")
    local prompt=Instance.new("ProximityPrompt"); prompt.Name="CollectPrompt"; prompt.ActionText="Collect Aura"
-   prompt.ObjectText=if crystal.Name:sub(1,5)=="Bonus" then "Sky crystal • 100× Mog Power" else "Aura crystal • 30× Mog Power"
+   prompt.ObjectText="Aura crystal • 8× Mog Power"
    prompt.MaxActivationDistance=9; prompt.RequiresLineOfSight=false; prompt.Parent=crystal
    prompt.Triggered:Connect(function(player) if self:IsNear(player,crystal,12) then callbacks.Collect(player,world.Id,crystal) end end)
   end
@@ -20,7 +21,7 @@ function WorldService.new(config, callbacks)
    prompt.MaxActivationDistance=12; prompt.RequiresLineOfSight=false; prompt.Parent=gate
    prompt.Triggered:Connect(function(player) if self:IsNear(player,gate,15) then callbacks.Portal(player,gate.Name) end end)
   end
-  for key,panel in {PetShop="Pets",Quests="Goals",Rebirth="Upgrades"} do
+  for key,panel in {PetShop="Pets",Quests="Goals",Rebirth="Upgrades",Shop="Shop"} do
    local marker=island.Markers:FindFirstChild(key)
    if marker then
     local prompt=Instance.new("ProximityPrompt"); prompt.ActionText="Open "..panel; prompt.ObjectText="MOG MODE"
@@ -43,7 +44,12 @@ function WorldService:Teleport(player,id)
  local root=c and c:FindFirstChild("HumanoidRootPart"); local humanoid=c and c:FindFirstChildOfClass("Humanoid")
  if not world or not root or not humanoid or humanoid.Health<=0 then return false end
  local p=world.Markers.Spawn.Position+Vector3.new(0,4,0)
+ local anchored=root.Anchored; root.Anchored=true
+ -- Ask streaming to prepare the destination before releasing character physics.
+ pcall(function() player:RequestStreamAroundAsync(p,5) end)
+ if player.Character~=c or not root.Parent or humanoid.Health<=0 then if root.Parent then root.Anchored=anchored end; return false end
  c:PivotTo(CFrame.lookAt(p,p+Vector3.new(0,0,-25))); root.AssemblyLinearVelocity=Vector3.zero; root.AssemblyAngularVelocity=Vector3.zero
+ root.Anchored=anchored
  return true
 end
 return WorldService

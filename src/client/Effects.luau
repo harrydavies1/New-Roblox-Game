@@ -3,37 +3,31 @@ local Players=game:GetService("Players")
 local CollectionService=game:GetService("CollectionService")
 local RunService=game:GetService("RunService")
 local TweenService=game:GetService("TweenService")
-local SoundService=game:GetService("SoundService")
 local Debris=game:GetService("Debris")
 local HttpService=game:GetService("HttpService")
 local Effects={}
-function Effects.new(config,engine,format,factory,ui)
+function Effects.new(config,engine,format,factory,ui,audio)
  local self={HiddenUntil={},Crystals={},Parties={},Styles={},Connections={},LastClick=-1,FloatCount=0}
  local folder=Instance.new("Folder"); folder.Name="MogLocalVisuals"; folder.Parent=workspace
  local function enabled(key) return not ui.State or ui.State.Settings[key] end
  function self:Sound(kind)
-  if not enabled("SFX") then return end
-  local now=os.clock(); if kind=="Click" and now-self.LastClick<.08 then return end; if kind=="Click" then self.LastClick=now end
-  local sound=Instance.new("Sound"); sound.Name="Mog"..kind; sound.SoundId="rbxasset://sounds/electronicpingshort.wav"
-  sound.Volume=if kind=="Click" then .09 else .19
-  sound.PlaybackSpeed=if kind=="Click" then 1.45 elseif kind=="Error" then .65 elseif kind=="Crystal" then 1.2 elseif kind=="Panel" then .9 else 1
-  sound.Parent=SoundService; sound:Play(); Debris:AddItem(sound,3)
+  audio:Play(kind)
  end
  function self:Float(amount)
-  if not enabled("Effects") or self.FloatCount>=12 then return end; self.FloatCount+=1
+  if not enabled("Effects") or self.FloatCount>=5 then return end; self.FloatCount+=1
   local label=Instance.new("TextLabel"); label.BackgroundTransparency=1; label.Text="+"..format.number(amount).." Aura"
-  label.Font=Enum.Font.GothamBold; label.TextSize=20; label.TextColor3=Color3.fromRGB(255,233,158); label.TextStrokeColor3=Color3.fromRGB(43,31,60); label.TextStrokeTransparency=.15
+  label.Font=Enum.Font.GothamMedium; label.TextSize=14; label.TextColor3=Color3.fromRGB(194,219,201); label.TextStrokeColor3=Color3.fromRGB(22,25,31); label.TextStrokeTransparency=.3
   label.Size=UDim2.fromOffset(220,40); label.AnchorPoint=Vector2.new(.5,.5); label.ZIndex=15
-  local dx=math.random(-75,75); label.Position=UDim2.new(.5,dx,1,-157); label.Parent=ui.Screen
-  local tween=TweenService:Create(label,TweenInfo.new(.85,Enum.EasingStyle.Quad,Enum.EasingDirection.Out),{Position=UDim2.new(.5,dx+math.random(-20,20),1,-232),TextTransparency=1,TextStrokeTransparency=1})
+  local dx=math.random(-35,35); label.Position=UDim2.new(.5,dx,1,-125); label.Parent=ui.Screen
+  local tween=TweenService:Create(label,TweenInfo.new(.7,Enum.EasingStyle.Quad,Enum.EasingDirection.Out),{Position=UDim2.new(.5,dx,1,-166),TextTransparency=1,TextStrokeTransparency=1})
   tween.Completed:Once(function() label:Destroy(); self.FloatCount-=1 end); tween:Play()
  end
  function self:Celebrate()
   self:Sound("Level"); if not enabled("Effects") then return end
-  for i=1,18 do
+  for i=1,8 do
    local p=Instance.new("Frame"); p.BorderSizePixel=0; p.Size=UDim2.fromOffset(7,11); p.Rotation=i*31; p.ZIndex=16
-   p.BackgroundColor3=Color3.fromHex(({"FFCD88","92F0C2","FFB0DA","C6AEFF","95E3FF"})[i%5+1]); p.Position=UDim2.new(.5,0,.45,0); p.Parent=ui.Screen
-   TweenService:Create(p,TweenInfo.new(1.3,Enum.EasingStyle.Quad,Enum.EasingDirection.Out),{Position=UDim2.new(.5,math.random(-230,230),.45,math.random(-100,240)),Rotation=i*80,BackgroundTransparency=1}):Play(); Debris:AddItem(p,1.4)
+   p.BackgroundColor3=Color3.fromHex(({"C1AC80","88B39A","BC91AB","9E92B8","7EADB7"})[i%5+1]); p.Position=UDim2.new(.5,0,1,-120); p.Parent=ui.Screen
+   TweenService:Create(p,TweenInfo.new(.9,Enum.EasingStyle.Quad,Enum.EasingDirection.Out),{Position=UDim2.new(.5,math.random(-95,95),1,math.random(-190,-100)),Rotation=i*80,BackgroundTransparency=1}):Play(); Debris:AddItem(p,1)
   end
  end
  function self:Handle(event)
@@ -45,13 +39,24 @@ function Effects.new(config,engine,format,factory,ui)
    if self.Pose then self.Pose:Play(actor) end
    local ring=Instance.new("Part"); ring.Name="MogBurst"; ring.Shape=Enum.PartType.Cylinder; ring.Size=Vector3.new(.12,3,3)
    ring.Anchored=true; ring.CanCollide=false; ring.CanTouch=false; ring.CanQuery=false; ring.CastShadow=false
-   ring.Material=Enum.Material.Neon; ring.Color=Color3.fromRGB(151,244,215); ring.Transparency=.3
+   ring.Material=Enum.Material.SmoothPlastic; ring.Color=Color3.fromRGB(126,175,151); ring.Transparency=.72
    ring.CFrame=CFrame.new(root.Position-Vector3.new(0,2.5,0))*CFrame.Angles(0,0,math.pi/2); ring.Parent=folder
-   TweenService:Create(ring,TweenInfo.new(.65,Enum.EasingStyle.Quad),{Size=Vector3.new(.12,14,14),Transparency=1}):Play(); Debris:AddItem(ring,.7)
-   if actor==Players.LocalPlayer then self:Sound("Mog"); ui:Toast("AURA BURST • absolutely locked in.") end
+   TweenService:Create(ring,TweenInfo.new(.65,Enum.EasingStyle.Quad),{Size=Vector3.new(.12,9,9),Transparency=1}):Play(); Debris:AddItem(ring,.7)
+   if actor==Players.LocalPlayer then self:Sound("Mog") end
   elseif event.Kind=="OpenPanel" then if ui.Panel~=event.Panel then ui:Open(event.Panel) end
-  elseif event.Kind=="Purchase" then self:Celebrate(); ui:Toast(event.Message); if ui.Panel then ui:Render() end
-  elseif event.Kind=="Travel" then self:Sound("Success"); ui:Toast(event.Message)
+  elseif event.Kind=="OpenCourse" then ui.SelectedCourse=event.Id; if ui.Panel~="Obbies" then ui:Open("Obbies") else ui:Render() end
+  elseif event.Kind=="Checkpoint" then self:Sound("Checkpoint"); if event.Amount>0 then ui:Toast("Checkpoint reached · +"..format.number(event.Amount).." Aura") end
+  elseif event.Kind=="ObbyComplete" then
+   if event.Practice then ui:Toast("Practice clear · rewards are still cooling down.")
+   else
+    self:Celebrate(); self:Sound("ObbyComplete")
+    ui:Toast(event.Course.." cleared · +"..format.number(event.Amount).." Aura"..(if event.Pet then " · "..engine.Pets[event.Pet].Name.." earned!" else ""))
+   end
+  elseif event.Kind=="ObbyReset" then self:Sound("ObbyReset"); ui:Toast(event.Message)
+  elseif event.Kind=="SaveStatus" then ui:SetSaveStatus(event.State)
+  elseif event.Kind=="Purchase" then self:Sound("Purchase"); ui:Toast(event.Message); if ui.Panel then ui:Render() end
+  elseif event.Kind=="TravelStart" then ui:Toast(event.Message)
+  elseif event.Kind=="Travel" then self:Sound("Travel"); ui:Toast(event.Message)
   elseif event.Message then ui:Toast(event.Message) end
  end
  local function addCrystal(p) if p:IsA("BasePart") then self.Crystals[p]=p.CFrame end end
@@ -114,7 +119,7 @@ function Effects.new(config,engine,format,factory,ui)
    lastDetail=now
    for crystal,base in self.Crystals do
     if not crystal.Parent then self.Crystals[crystal]=nil; continue end
-    local hidden=(self.HiddenUntil[crystal:GetAttribute("CrystalId")] or 0)>now; crystal.LocalTransparencyModifier=if hidden then 1 else 0
+    local hidden=not ui.State or crystal:GetAttribute("WorldId")~=ui.State.CurrentWorld or (self.HiddenUntil[crystal:GetAttribute("CrystalId")] or 0)>now; crystal.LocalTransparencyModifier=if hidden then 1 else 0
     local prompt=crystal:FindFirstChild("CollectPrompt"); if prompt then prompt.Enabled=not hidden end
     for _,child in crystal:GetChildren() do if child:IsA("BillboardGui") then child.Enabled=not hidden end end
     if animate and not hidden and (base.Position-camera.CFrame.Position).Magnitude<180 then crystal.CFrame=base*CFrame.new(0,math.sin(now*2+base.X)*.35,0)*CFrame.Angles(0,now*.7,0)

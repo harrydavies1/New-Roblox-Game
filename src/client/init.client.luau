@@ -9,14 +9,16 @@ local Factory=require(script.PetFactory)
 local UI=require(script.UI)
 local Effects=require(script.Effects)
 local Pose=require(script.MogPose)
+local Audio=require(script.Audio)
+local WorldVisibility=require(script.WorldVisibility)
 local remotes=ReplicatedStorage:WaitForChild("MogRemotes")
 local request=remotes:WaitForChild("Action"); local click=remotes:WaitForChild("Click")
 local stateEvent=remotes:WaitForChild("State"); local effectEvent=remotes:WaitForChild("Effect")
-local ui,effects; local lastClick=-1
+local ui,effects,visibility; local lastClick=-1
 ui=UI.new(Config,Engine,Format,{
  Click=function()
   if not ui or not ui.State or ui.ConfirmFrame.Visible then return end
-  local now=os.clock(); if now-lastClick<1/Config.ClickRate then return end; lastClick=now
+  local now=os.clock(); if now-lastClick<Config.ClickCooldown then return end; lastClick=now
   click:FireServer(); ui:Pulse(); if effects then effects:Sound("Click") end
  end,
  Action=function(name,payload) return request:InvokeServer(name,payload) end,
@@ -26,10 +28,13 @@ ui=UI.new(Config,Engine,Format,{
   local camera=Instance.new("Camera"); camera.FieldOfView=38; camera.CFrame=CFrame.lookAt(Vector3.new(3.2,2,-5),Vector3.new(0,.3,0)); camera.Parent=viewport; viewport.CurrentCamera=camera
  end,
 })
-effects=Effects.new(Config,Engine,Format,Factory,ui)
+local audio=Audio.new(function() return if ui.State then ui.State.Settings else {SFX=true,Effects=true} end)
+effects=Effects.new(Config,Engine,Format,Factory,ui,audio)
 effects.Pose=Pose.new(function() return ui.State and ui.State.Settings.Effects end)
+visibility=WorldVisibility.new(Engine.Worlds)
 local function accept(state)
  if type(state)~="table" then return end; local old=ui.State; ui:Update(state)
+ visibility:SetWorld(state.CurrentWorld)
  if old and state.Level>old.Level then effects:Celebrate(); ui:Toast("LEVEL "..state.Level.." • "..Engine:Rank(state.Level)) end
 end
 stateEvent.OnClientEvent:Connect(accept)

@@ -7,7 +7,7 @@ bash tools/bootstrap.sh
 export PATH="$MOG_TOOL_DIR/bin:$PATH"
 mkdir -p build
 luau-analyze src/shared/Config.luau src/shared/Economy.luau src/shared/Format.luau \
- src/server/SessionStore.luau src/server/RateLimiter.luau src/server/ServerSettings.luau tests/run.luau
+ src/server/SessionStore.luau src/server/RateLimiter.luau src/server/ServerSettings.luau src/server/ObbyRun.luau src/shared/Objectives.luau tests/run.luau
 python3 - <<'PY'
 from pathlib import Path
 import subprocess
@@ -17,6 +17,7 @@ print(f'Compiled all {len(paths)} source scripts.')
 PY
 luau tests/run.luau
 python3 tools/test_contracts.py
+python3 tools/generate_config.py --check
 python3 tools/build_world.py --check
 rojo build default.project.json --output build/MogMode.rbxl
 rojo build default.project.json --output build/MogMode.rbxlx

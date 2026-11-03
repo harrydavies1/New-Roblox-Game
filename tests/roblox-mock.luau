@@ -40,6 +40,24 @@ function methods:GetPropertyChangedSignal(key) if not self._signals[key] then se
 function methods:SetAttribute(key,value) self._attributes[key]=value end
 function methods:GetAttribute(key) return self._attributes[key] end
 function methods:PivotTo(cf) local root=self:FindFirstChild("HumanoidRootPart"); if root then root.CFrame=cf; root.Position=cf.Position end end
+function methods:RequestStreamAroundAsync(point, timeout)
+ self._streamRequests = self._streamRequests or {}
+ table.insert(self._streamRequests, {Point=point, Timeout=timeout, Anchored=self.Character and self.Character.HumanoidRootPart.Anchored})
+end
+function methods:FindFirstAncestorOfClass(class)
+ local parent=self.Parent
+ while parent do if parent.ClassName==class then return parent end; parent=parent.Parent end
+ return nil
+end
+function methods:Play() self.Playing=true end
+function methods:Stop() self.Playing=false end
+function methods:FireClient(player,data)
+ self._events=self._events or {}; table.insert(self._events,{Player=player,Data=data})
+end
+function methods:FireAllClients(data)
+ self._broadcasts=self._broadcasts or {}; table.insert(self._broadcasts,data)
+end
+function methods:Kick(message) self.KickReason=message end
 local meta={
  __index=function(self,key) if methods[key] then return methods[key] end; local v=self._props[key]; if v~=nil then return v end; return methods.FindFirstChild(self,key) end,
  __newindex=function(self,key,value)
@@ -49,10 +67,10 @@ local meta={
   self._props[key]=value
  end,
 }
-local Instance={new=function(class) return setmetatable({_children={},_signals={},_attributes={},_props={ClassName=class,Name=class,Active=true,Interactable=true,Visible=true,Enabled=true,Position=UDim2.new(),Size=UDim2.new(),Text="",Activated=signal(),Triggered=signal(),InputBegan=signal()}},meta) end}
+local Instance={new=function(class) return setmetatable({_children={},_signals={},_attributes={},_props={ClassName=class,Name=class,Active=true,Interactable=true,Visible=true,Enabled=true,Position=UDim2.new(),Size=UDim2.new(),Text="",Activated=signal(),Triggered=signal(),Touched=signal(),InputBegan=signal(),OnServerEvent=signal(),CharacterAdded=signal(),PlayerAdded=signal(),PlayerRemoving=signal(),DescendantAdded=signal(),DescendantRemoving=signal()}},meta) end}
 local player=Instance.new("Player"); local gui=Instance.new("PlayerGui"); gui.Name="PlayerGui"; gui.Parent=player
 local camera=Instance.new("Camera"); camera.ViewportSize=Vector2.new(1280,720)
 local workspace=Instance.new("Workspace"); workspace.CurrentCamera=camera
-local services={Players={LocalPlayer=player},UserInputService={InputBegan=signal(),GamepadEnabled=false},GuiService={GetGuiInset=function() return Vector2.new(0,36),Vector2.zero end},TweenService={Create=function(_,object,_,values) return {Play=function() for k,v in values do object[k]=v end end} end}}
-local game={GetService=function(_,name) assert(services[name],"Unmocked service "..name); return services[name] end}
+local services={Players={LocalPlayer=player},RunService={Heartbeat=signal()},UserInputService={InputBegan=signal(),GamepadEnabled=false},GuiService={GetGuiInset=function() return Vector2.new(0,36),Vector2.zero end},TweenService={Create=function(_,object,_,values) return {Play=function() for k,v in values do object[k]=v end end} end}}
+local game={JobId="contract-test",GetService=function(_,name) assert(services[name],"Unmocked service "..name); return services[name] end}
 local task={delay=function() end,spawn=function(f) f() end,wait=function() end}

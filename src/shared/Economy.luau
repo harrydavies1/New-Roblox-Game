@@ -13,26 +13,30 @@ local function integer(value: any, fallback: number, maximum: number): number
 end
 function Economy.new(config: any): any
 	local engine: any = { Config = config, Clone = clone }
-	local worlds, pets, cosmetics, products, quests, milestones = {}, {}, {}, {}, {}, {}
+	local worlds, pets, cosmetics, products, quests, milestones, obbies = {}, {}, {}, {}, {}, {}, {}
 	for i, world in config.Worlds do worlds[world.Id] = world; world.Index = i end
 	for _, pet in config.Pets do pets[pet.Id] = pet end
 	for _, cosmetic in config.Cosmetics do cosmetics[cosmetic.Id] = cosmetic end
 	for _, product in config.Products do products[product.Key] = product end
 	for _, quest in config.Quests do quests[quest.Id] = quest end
 	for _, goal in config.Milestones do milestones[goal.Id] = goal end
-	engine.Worlds, engine.Pets, engine.Cosmetics, engine.Products = worlds, pets, cosmetics, products
+	for _, route in config.Obbies do obbies[route.Id] = route end
+	engine.Worlds, engine.Pets, engine.Cosmetics, engine.Products, engine.Obbies = worlds, pets, cosmetics, products, obbies
 	function engine.NewProfile(self: any): any
 		return {
 			Version = config.SchemaVersion, Aura = 0, FlexGems = 0, TotalAura = 0, TotalClicks = 0,
 			XP = 0, Level = 1, Upgrade = 0, Rebirths = 0, CurrentWorld = "meadow",
 			Worlds = { meadow = true }, Pets = {}, Equipped = {}, Cosmetics = {},
 			ActiveCosmetics = {}, Receipts = {}, Milestones = {},
-			Daily = { Day = -1, Clicks = 0, Earned = 0, Collects = 0, Claimed = {} },
+			Daily = { Day = -1, Clicks = 0, Earned = 0, Collects = 0, Obbies = 0, Claimed = {} },
+			Login = { FirstSeenAt = 0, LastClaimAt = 0, Claims = 0 },
+			Obby = { FirstClear = {}, NextRewardAt = {}, StagePaidAt = {}, Clears = 0 },
+			Boosts = { AuraUntil = 0, XPUntil = 0 },
 			Settings = { SFX = true, Effects = true },
 		}
 	end
-	function engine.XPRequired(_self: any, level: number): number return math.floor(20 * level ^ 1.4) end
-	function engine.UpgradeCost(_self: any, level: number): number return math.min(config.MaxCurrency, math.floor(30 * 1.4 ^ level)) end
+	function engine.XPRequired(_self: any, level: number): number return math.floor(config.XPBase * level ^ config.XPExponent) end
+	function engine.UpgradeCost(_self: any, level: number): number return math.min(config.MaxCurrency, math.floor(config.UpgradeBase * config.UpgradeGrowth ^ level)) end
 	function engine.RebirthCost(_self: any, count: number): number return math.min(config.MaxCurrency, math.floor(100_000 * 1.85 ^ count)) end
 	function engine.Rank(_self: any, level: number): string
 		local name = config.Ranks[1].Name
@@ -44,7 +48,7 @@ function Economy.new(config: any): any
 	function engine.Normalize(self: any, raw: any): any
 		if raw == nil then return self:NewProfile() end
 		assert(type(raw) == "table", "Profile data is not a table")
-		assert(type(raw.Version) == "number" and raw.Version == config.SchemaVersion, "Unsupported profile version")
+		assert(raw.Version == 1 or raw.Version == config.SchemaVersion, "Unsupported profile version")
 		assert(type(raw.FlexGems) == "number" and raw.FlexGems == raw.FlexGems and raw.FlexGems >= 0 and raw.FlexGems <= config.MaxCurrency and raw.FlexGems % 1 == 0, "Invalid paid balance")
 		assert(type(raw.Receipts) == "table" and type(raw.Cosmetics) == "table", "Invalid paid entitlements")
 		local p = self:NewProfile()
@@ -92,7 +96,7 @@ function Economy.new(config: any): any
 		end
 		if type(raw.Daily) == "table" then
 			p.Daily.Day = integer(raw.Daily.Day, 0, config.MaxCurrency)
-			for _, key in { "Clicks", "Earned", "Collects" } do p.Daily[key] = integer(raw.Daily[key], 0, config.MaxCurrency) end
+			for _, key in { "Clicks", "Earned", "Collects", "Obbies" } do p.Daily[key] = integer(raw.Daily[key], 0, config.MaxCurrency) end
 			if type(raw.Daily.Claimed) == "table" then
 				for id in quests do if raw.Daily.Claimed[id] == true then p.Daily.Claimed[id] = true end end
 			end
@@ -103,11 +107,34 @@ function Economy.new(config: any): any
 		if type(raw.Milestones) == "table" then
 			for id in milestones do if raw.Milestones[id] == true then p.Milestones[id] = true end end
 		end
+		if type(raw.Login) == "table" then
+			for _, key in { "FirstSeenAt", "LastClaimAt", "Claims" } do p.Login[key] = integer(raw.Login[key], 0, config.MaxCurrency) end
+		end
+		if type(raw.Boosts) == "table" then
+			for _, key in { "AuraUntil", "XPUntil" } do p.Boosts[key] = integer(raw.Boosts[key], 0, config.MaxCurrency) end
+		end
+		if type(raw.Obby) == "table" then
+			p.Obby.Clears = integer(raw.Obby.Clears, 0, config.MaxCurrency)
+			for id, route in obbies do
+				if type(raw.Obby.FirstClear) == "table" and raw.Obby.FirstClear[id] == true then p.Obby.FirstClear[id] = true end
+				if type(raw.Obby.NextRewardAt) == "table" then p.Obby.NextRewardAt[id] = integer(raw.Obby.NextRewardAt[id], 0, config.MaxCurrency) end
+				if type(raw.Obby.StagePaidAt) == "table" then
+					for stage = route.CheckpointEvery, route.Count - 1, route.CheckpointEvery do
+						local key = id .. ":" .. stage
+						p.Obby.StagePaidAt[key] = integer(raw.Obby.StagePaidAt[key], 0, config.MaxCurrency)
+					end
+				end
+			end
+		end
 		return p
+	end
+	function engine.Initialize(self: any, p: any, now: number)
+		if p.Login.FirstSeenAt <= 0 then p.Login.FirstSeenAt = now end
+		self:RefreshDay(p, now)
 	end
 	function engine.RefreshDay(_self: any, p: any, now: number)
 		local day = math.floor(now / 86400)
-		if p.Daily.Day ~= day then p.Daily = { Day = day, Clicks = 0, Earned = 0, Collects = 0, Claimed = {} } end
+		if p.Daily.Day ~= day then p.Daily = { Day = day, Clicks = 0, Earned = 0, Collects = 0, Obbies = 0, Claimed = {} } end
 	end
 	function engine.EquipSlots(_self: any, context: any): number return config.BaseEquipSlots + (if context.Passes.ExtraPets then config.ExtraEquipSlots else 0) end
 	function engine.PetMultiplier(self: any, p: any, context: any): number
@@ -119,16 +146,16 @@ function Economy.new(config: any): any
 	end
 	function engine.ClickValue(self: any, p: any, context: any): number
 		local world = worlds[p.CurrentWorld] or worlds.meadow
-		return math.min(config.MaxCurrency, math.max(1, math.floor((1 + p.Upgrade) * self:PetMultiplier(p, context) * world.Multiplier * (1 + 0.25 * p.Rebirths) * (if context.Passes.DoubleAura then 2 else 1))))
+		return math.min(config.MaxCurrency, math.max(1, math.floor((1 + p.Upgrade) * self:PetMultiplier(p, context) * world.Multiplier * (1 + 0.25 * p.Rebirths) * (if context.Passes.DoubleAura then 2 else 1) * (if p.Boosts.AuraUntil > context.Now then 2 else 1))))
 	end
 	local function addAura(p: any, amount: number)
 		p.Aura = math.min(config.MaxCurrency, p.Aura + amount)
 		p.TotalAura = math.min(config.MaxCurrency, p.TotalAura + amount)
 		p.Daily.Earned = math.min(config.MaxCurrency, p.Daily.Earned + amount)
 	end
-	local function addXP(p: any, amount: number): number
+	local function addXP(p: any, amount: number, now: number?): number
 		local previous = p.Level
-		p.XP += amount
+		p.XP += amount * (if now and p.Boosts.XPUntil > now then 2 else 1)
 		while p.Level < config.MaxLevel and p.XP >= engine:XPRequired(p.Level) do
 			p.XP -= engine:XPRequired(p.Level)
 			p.Level += 1
@@ -143,27 +170,65 @@ function Economy.new(config: any): any
 		p.TotalClicks = math.min(config.MaxCurrency, p.TotalClicks + 1)
 		p.Daily.Clicks = math.min(config.MaxCurrency, p.Daily.Clicks + 1)
 		addAura(p, amount)
-		return { Amount = amount, Levels = addXP(p, 1), Burst = p.TotalClicks % config.BurstEvery == 0 and p.TotalClicks < config.MaxCurrency }
+		return { Amount = amount, Levels = addXP(p, 1, context.Now), Burst = p.TotalClicks % config.BurstEvery == 0 and p.TotalClicks < config.MaxCurrency }
 	end
 	function engine.Collect(self: any, p: any, worldId: string, bonus: boolean, context: any): any
 		assert(worlds[worldId] and p.Worlds[worldId] and p.CurrentWorld == worldId, "Locked crystal")
 		self:RefreshDay(p, context.Now)
-		local amount = math.min(config.MaxCurrency, self:ClickValue(p, context) * (if bonus then 100 else 30))
+		local amount = math.min(config.MaxCurrency, self:ClickValue(p, context) * (if bonus then 12 else 8))
 		addAura(p, amount)
 		p.Daily.Collects = math.min(config.MaxCurrency, p.Daily.Collects + 1)
-		return { Amount = amount, Levels = addXP(p, if bonus then 10 else 3) }
+		return { Amount = amount, Levels = addXP(p, 2, context.Now) }
 	end
-	function engine.GrantProduct(_self: any, p: any, key: string): boolean
+	function engine.GrantProduct(_self: any, p: any, key: string, now: number?): boolean
 		local product = products[key]
 		if not product then return false end
+		if product.Kind == "Boost" then
+			if not now or now <= 0 then return false end
+			local field = product.Boost .. "Until"
+			p.Boosts[field] = math.max(now, p.Boosts[field]) + product.Seconds
+			return true
+		end
 		if p[product.Currency] + product.Amount > config.MaxCurrency then return false end
 		-- Purchased Aura do not count as earned Aura or quest progress.
 		p[product.Currency] = math.min(config.MaxCurrency, p[product.Currency] + product.Amount)
 		return true
 	end
+	function engine.LoginStatus(_self: any, p: any, now: number): any
+		local nextAt = math.max(p.Login.FirstSeenAt + config.LoginInterval, p.Login.LastClaimAt + config.LoginInterval)
+		local index = p.Login.Claims % #config.LoginRewards + 1
+		return { Ready = p.Login.FirstSeenAt > 0 and now >= nextAt, NextAt = nextAt, Index = index, Aura = config.LoginRewards[index], Claims = p.Login.Claims }
+	end
+	function engine.CheckpointReward(self: any, p: any, id: string, stage: number, context: any): any
+		local route = obbies[id]
+		if not route or not p.Worlds[route.World] or p.CurrentWorld ~= route.World or stage <= 0 or stage >= route.Count or stage % route.CheckpointEvery ~= 0 then return { Amount = 0, Levels = 0 } end
+		local key = id .. ":" .. stage
+		if (p.Obby.StagePaidAt[key] or 0) > context.Now then return { Amount = 0, Levels = 0 } end
+		p.Obby.StagePaidAt[key] = context.Now + config.ObbyRewardCooldown
+		self:RefreshDay(p, context.Now); addAura(p, route.CheckpointAura)
+		return { Amount = route.CheckpointAura, Levels = addXP(p, 5, context.Now) }
+	end
+	function engine.CompleteRoute(self: any, p: any, id: string, context: any): any
+		local route = obbies[id]
+		assert(route and p.Worlds[route.World] and p.CurrentWorld == route.World, "Invalid course completion")
+		self:RefreshDay(p, context.Now)
+		local first = not p.Obby.FirstClear[id]
+		if not first and (p.Obby.NextRewardAt[id] or 0) > context.Now then return { Practice = true, Amount = 0, Levels = 0 } end
+		p.Obby.FirstClear[id] = true; p.Obby.NextRewardAt[id] = context.Now + config.ObbyRewardCooldown
+		p.Obby.Clears = math.min(config.MaxCurrency, p.Obby.Clears + 1); p.Daily.Obbies += 1
+		local amount = if first then route.FirstAura else route.RepeatAura
+		addAura(p, amount)
+		local pet = nil
+		if first and route.PetReward and not p.Pets[route.PetReward] then
+			pet = route.PetReward; p.Pets[pet] = 1
+			if #p.Equipped < self:EquipSlots(context) then table.insert(p.Equipped, pet) end
+		end
+		return { Amount = amount, Levels = addXP(p, if first then route.FirstXP else route.RepeatXP, context.Now), First = first, Pet = pet, Practice = false }
+	end
 	function engine.MilestoneProgress(_self: any, p: any, id: string): number
 		local goal = milestones[id]
 		if not goal then return 0 end
+		if goal.Metric == "ObbyClears" then return p.Obby.Clears end
 		if goal.Metric == "Pets" or goal.Metric == "PetLevels" then
 			local count = 0; for _, level in p.Pets do count += if goal.Metric == "Pets" then 1 else level end; return count
 		elseif goal.Metric == "Worlds" then
@@ -186,6 +251,7 @@ function Economy.new(config: any): any
 			if not pet then return false, "That pet does not exist." end
 			if not p.Worlds[pet.World] then return false, "Discover this pet's island first." end
 			local level = p.Pets[id] or 0
+			if level == 0 and pet.ObbyOnly then return false, "Earn this pet by completing " .. obbies[pet.ObbyOnly].Name .. "." end
 			if level >= config.MaxPetLevel then return false, "This pet is at its highest level!" end
 			local cost = self:PetCost(id, level)
 			if p.Aura < cost then return false, "Earn more Aura to adopt or train this pet." end
@@ -219,16 +285,22 @@ function Economy.new(config: any): any
 			if p.Daily.Claimed[id] then return false, "You've already collected this reward today." end
 			if p.Daily[quest.Counter] < quest.Target then return false, "Keep exploring to finish this goal." end
 			p.Daily.Claimed[id] = true
-			addAura(p, quest.Aura); addXP(p, quest.XP)
+			addAura(p, quest.Aura); addXP(p, quest.XP, context.Now)
 			return true, "Goal complete! Aura and XP collected."
 		elseif action == "ClaimMilestone" then
 			local goal = if type(id) == "string" then milestones[id] else nil
 			if not goal then return false, "Unknown journal stamp." end
 			if p.Milestones[id] then return false, "Already collected." end
 			if self:MilestoneProgress(p, id) < goal.Target then return false, "Keep exploring to finish this stamp." end
-			p.Milestones[id] = true; addAura(p, goal.Aura); addXP(p, goal.XP)
+			p.Milestones[id] = true; addAura(p, goal.Aura); addXP(p, goal.XP, context.Now)
 			if goal.Cosmetic then p.Cosmetics[goal.Cosmetic] = true; p.ActiveCosmetics.Title = goal.Cosmetic end
 			return true, "Journal reward collected!"
+		elseif action == "ClaimLogin" then
+			local status = self:LoginStatus(p, context.Now)
+			if not status.Ready then return false, "The first login reward unlocks after 24 hours. Return when the timer is ready." end
+			p.Login.LastClaimAt = context.Now; p.Login.Claims += 1
+			addAura(p, status.Aura); addXP(p, 40, context.Now)
+			return true, "Welcome back! " .. tostring(status.Aura) .. " Aura collected."
 		elseif action == "BuyCosmetic" or action == "EquipCosmetic" then
 			local item = if type(id) == "string" then cosmetics[id] else nil
 			if not item then return false, "That cosmetic does not exist." end

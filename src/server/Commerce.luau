@@ -14,7 +14,7 @@ function Commerce.new(config,settings,store,engine,sandbox,callbacks)
   if sandbox then return Enum.ProductPurchaseDecision.NotProcessedYet end
   local key=self.ProductsById[receipt.ProductId]; local player=Players:GetPlayerByUserId(receipt.PlayerId)
   if not key or not player then return Enum.ProductPurchaseDecision.NotProcessedYet end
-  local committed,reason=store:CompletePurchase(receipt.PlayerId,receipt.PurchaseId,function(p) return engine:GrantProduct(p,key) end)
+  local committed,reason=store:CompletePurchase(receipt.PlayerId,receipt.PurchaseId,function(p) return engine:GrantProduct(p,key,os.time()) end)
   if not committed then warn("MOG receipt deferred",reason); return Enum.ProductPurchaseDecision.NotProcessedYet end
   if reason~="duplicate" then callbacks.Purchased(player,key) end
   return Enum.ProductPurchaseDecision.PurchaseGranted
@@ -58,7 +58,7 @@ function Commerce:Prompt(player,key)
  if offer.Kind=="Pass" and self:GetPasses(player)[key] then return false,"You already own this pass." end
  if offer.Kind=="Product" then
   local p=self.Store:Get(player.UserId); local product=self.Engine.Products[key]
-  if not p or not product or p[product.Currency]+product.Amount>self.Config.MaxCurrency then return false,"Spend some currency before purchasing another pack." end
+  if not p or not product or (product.Kind~="Boost" and p[product.Currency]+product.Amount>self.Config.MaxCurrency) then return false,"Spend some currency before purchasing another pack." end
  end
  local now=os.clock(); if now-(self.LastPrompt[player.UserId] or -100)<3 then return false,"Please finish the current purchase window." end
  self.LastPrompt[player.UserId]=now
