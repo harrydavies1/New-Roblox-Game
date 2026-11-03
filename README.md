@@ -2,7 +2,7 @@
 
 ## MOG MODE
 
-Click to build Aura, upgrade Mog Power, beat obbies for XP and exclusive pets, and unlock four islands beyond Mewing Meadow. The goal card always shows a next step. A compact charcoal HUD, muted island palettes, small reward effects, and distinct sound cues leave the game world visible.
+Click to build Aura, upgrade Mog Power, beat obbies for XP and exclusive pets, and unlock four islands beyond Mewing Meadow. A compact cartoon HUD uses warm sticker panels, chunky ink borders, round lettering, and gold/lime/blue accents. The goal card shows a next step while most of the world stays visible. See [the prize and presentation revision](docs/PRIZE_PARTY.md).
 
 **Downloads:** [Complete source ZIP](https://github.com/harrydavies1/New-Roblox-Game/archive/refs/heads/main.zip) · [Ready-to-open Studio game](https://github.com/harrydavies1/New-Roblox-Game/raw/refs/heads/main/releases/MogMode.rbxl)
 
@@ -11,11 +11,12 @@ Open `releases/MogMode.rbxl` in Roblox Studio on Windows or macOS and press **Pl
 ### What is included
 
 - **Five isolated islands:** Mewing Meadow, Brotein Boulevard, Rizz Reef, Sigma Summit, and Final Boss Citadel. Each has themed scenery, 12 renewable crystals, shops, portals, and three courses. Islands are 6,000 studs apart; the client also hides scenery and prompts from other islands, including retained streamed instances.
-- **15 obbies / 330 ordered stages:** 12-jump Warm-up Circuit, 22-jump Hop to the Top, and 32-jump No-Cap Gauntlet on every island. Narrow landings, changing elevation, alternating turns, expert hazards, and checkpoints replace the old short stairs. Checkpoints and finishes award Aura; finishes are the main XP route.
-- **25 pets:** 15 guaranteed Aura adoptions and ten exclusive hard/expert first-clear pets. Exclusive pets cannot be bought. Higher adoption and training prices, ten training levels, animated followers, level stars/crowns, three equip slots, and model previews give pets a longer progression path.
+- **15 obbies / 330 numbered stages:** 12-jump Warm-up Circuit, 22-jump Hop to the Top, and 32-jump No-Cap Gauntlet on every island. Walk onto START to begin naturally, or choose a route in the menu. Entrance bridges, a personal next-jump arrow, changing elevation, narrow landings, expert hazards, checkpoint rewards, wide prize decks, and interactive chests make the route clear. Finishes are the main XP route.
+- **25 pets:** 15 guaranteed Aura adoptions and ten exclusive hard/expert first-clear pets. Exclusive pets cannot be bought. Prize cards show the actual unlocked pet, Aura/XP payout, and a squad button. Equip best selects the strongest owned pets for the player's verified slot limit. Larger shop previews, earned medals, distinct rat/capybara models, ten training levels, followers, and stars/crowns give the collection character.
 - **Slower progression:** more expensive power upgrades and island unlocks, a steeper XP curve, nine ranks, 200 levels, 60 power upgrades, 20 rebirths, daily tasks, and 11 journal milestones. See [progression and rewards](docs/PROGRESSION.md).
 - **Return rewards:** no reward on the first day. The first claim unlocks 24 hours after the first saved visit; later claims are 24 hours apart. Seven Aura rewards cycle without losing a streak for missing a day. Flex Gems are never earned from gameplay.
-- **Smaller UI and effects:** one menu button, one next-objective card, a small MOG button with cooldown fill, responsive panels, pet previews, save status, optional effect settings, layered reward sounds, dry taps, and quieter travel/reset cues. Floor surfaces have distinct heights, bloom is reduced, and only 30 of 2,218 map parts use Neon.
+- **More character, compact UI:** one menu button, one next-objective card, a small gold MOG button, springy button feedback, a scrolling landscape-safe menu, pet reveals, and separate SFX/animation settings. Sixteen arcade sound cues distinguish clicks, checkpoints, route starts, pet unlocks, upgrades, travel, and rewards. Voice limits, short envelopes, and reward priority avoid a wall of overlapping pings.
+- **Island details:** aura-inspection mascots, brotein jokes, a cosmic side eye, a crowned final-boss honker, distinct prize-pet silhouettes, chest animations, finish pennants, and numbered landing faces. Floor surfaces have distinct heights, bloom stays low, and only 15 of 2,807 map parts use Neon.
 - **Server authority:** a 0.2-second click cooldown on both client and server, burst capacity of one, checked world/proximity/ordered-stage rewards, durable first clears and login claims, leased save sessions, and atomic paid-receipt deduplication. The cooldown caps accepted clicks at five per second; it cannot prove whether a permitted click came from an autoclicker.
 
 The images below show geometry exported from the actual HUD code. They are layout previews, **not Roblox engine screenshots**.
@@ -24,11 +25,13 @@ The images below show geometry exported from the actual HUD code. They are layou
 
 [Phone HUD layout preview](docs/hud-phone.png)
 
+[Menu layout](docs/hud-menu-desktop.png) · [Prize card layout](docs/hud-prize-phone.png) (2D layouts; Roblox's 3D pet rendering is omitted.)
+
 ### Saving
 
 Published Roblox servers use DataStore `MogMode_Profiles_v1`. Schema-one profiles migrate to schema two while preserving existing currency, receipts, owned pets, unlocked islands, styles, and progression. New fields store course first clears/reward cooldowns, login timestamps, and paid boost expiry times.
 
-Autosave runs every 30 seconds, with saves on leaving and shutdown. Course completions, exclusive pets, return claims, and paid deliveries commit before their rewards are shown. A failed course save grants no finish reward and lets the player step off and back onto the finish to retry. The HUD reports pending saves and retries; Settings includes **Save now**. Live servers refuse an unsafe profile load instead of replacing it with temporary progress.
+Autosave runs every 30 seconds, with saves on leaving and shutdown. Course completions, exclusive pets, return claims, and paid deliveries commit before their rewards are shown. A failed finish save keeps the verified finish and retries every five seconds; the nearby prize prompt also allows a checked retry. The player can stand still. No pet or finish payout is exposed before durable success. The HUD reports pending saves and retries; Settings includes **Save now**. Live servers refuse an unsafe profile load instead of replacing it with temporary progress.
 
 Currencies, XP, upgrades, rebirths, pets, islands, journal/tasks, cosmetics/settings, login progress, completed courses, reward cooldowns, and boost timers persist. An active course checkpoint belongs to the current run; it does not resume after leaving the server. Ordinary play since the last successful save may be lost if the server crashes.
 
@@ -65,7 +68,7 @@ On Linux x86_64 with Python 3, curl, and Git:
 bash tools/check.sh
 ```
 
-The installer checks pinned SHA-256 digests for Rojo 7.7.1 and Luau 0.745. The script analyzes pure modules, compiles all 20 game scripts, runs 118 core tests, exercises actual UI/server/service source against explicit boundary fakes, checks generated config/map consistency, builds both place formats, and inspects embedded scripts and map geometry. Coverage includes 385 UI scenarios across five viewports, 450 model previews, 124 existing and 177 new service assertions, and 42 real server-entry handler assertions. These are CLI checks, not Roblox engine playtests.
+The installer checks pinned SHA-256 digests for Rojo 7.7.1 and Luau 0.745. The script analyzes pure modules, compiles all 21 game scripts, runs 120 core tests, exercises actual UI/server/service source against explicit boundary fakes, checks generated config/map consistency, builds both place formats, and inspects embedded scripts and map geometry. Coverage includes 395 UI scenarios across five viewports, 480 model previews, 124 existing and 351 expanded service assertions, and 51 real server-entry handler assertions. The prize dispatcher, natural starts, missed contacts, save retries, sound cleanup, guidance, and landscape menu bounds are included. These are CLI checks, not Roblox engine playtests.
 
 In the prepared cloud environment, reuse cached tools with:
 
@@ -86,7 +89,7 @@ python3 tools/package.py
 
 `tools/package.py` copies the verified build to `releases/MogMode.rbxl`, writes source/game SHA-256 hashes to `releases/manifest.json`, and creates `build/MOG-MODE-source.zip`. The ZIP includes all source, maps, tests, tooling, docs, and the ready-to-open place, excluding Git internals and tool caches. Build/test outputs under `build/` are ignored.
 
-The optional `python3 tools/render_hud.py` renders the documented layouts after contract tests and requires Pillow; Pillow is not required to build or test the game. For desktop source syncing with a matching Rojo plugin:
+The optional `python3 tools/render_hud.py` renders the documented 2D layouts after contract tests and requires Pillow; Pillow is not required to build or test the game. It uses the open-source Fredoka variable font if `build/Fredoka.ttf` is available, otherwise a system font. The game itself uses Roblox's built-in Fredoka One. For desktop source syncing with a matching Rojo plugin:
 
 ```bash
 export PATH="$PWD/.tools/bin:$PATH"

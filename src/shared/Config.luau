@@ -354,7 +354,7 @@ return {
 			["Bonus"] = 15,
 			["Color"] = "B7AD9E",
 			["Accent"] = "D2AC8B",
-			["Shape"] = "pup",
+			["Shape"] = "rat",
 			["Description"] = "A late-game addition to the hype squad.",
 		},
 		{
@@ -365,7 +365,7 @@ return {
 			["Bonus"] = 20,
 			["Color"] = "B4A081",
 			["Accent"] = "E2CA9A",
-			["Shape"] = "turtle",
+			["Shape"] = "capy",
 			["Description"] = "A late-game addition to the hype squad.",
 		},
 		{

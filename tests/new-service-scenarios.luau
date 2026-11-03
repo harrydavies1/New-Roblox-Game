@@ -28,14 +28,20 @@ local function drainAudio()
 end
 local audioSettings={SFX=true}
 local sounds=Audio.new(function() return audioSettings end)
-sounds:Play("Click"); verify(sounds.Voices==1)
+sounds:Play("Click"); verify(sounds.Voices==2)
 local active=services.SoundService:GetChildren()
 verify(active[1].SoundId=="rbxasset://sounds/action_footsteps_plastic.mp3" and active[1].PlaybackSpeed==2.7,"click uses a dry tap, not the reward bell")
-sounds:Play("Click"); verify(sounds.Voices==1,"click sound spam is gated")
+sounds:Play("Click"); verify(sounds.Voices==2,"click sound spam is gated")
 drainAudio(); verify(sounds.Voices==0 and #services.SoundService:GetChildren()==0)
 audioClock.Now+=1; sounds:Play("ObbyComplete"); verify(sounds.Voices>0); drainAudio(); verify(sounds.Voices==0)
-audioClock.Now+=1; sounds:Play("Success"); audioSettings.SFX=false; drainAudio(); verify(sounds.Voices==0)
+audioClock.Now+=1; sounds:Play("PetUnlock"); audioSettings.SFX=false; sounds:SyncSettings(); verify(sounds.Voices==0,"muting stops active voices immediately")
+audioSettings.SFX=true; sounds:SyncSettings(); drainAudio(); verify(sounds.Voices==0,"unmuting cannot revive delayed notes from a muted fanfare")
+audioSettings.SFX=false
 sounds:Play("Click"); verify(sounds.Voices==0,"muted sound remains muted")
+audioSettings.SFX=true; audioClock.Now+=1; verify(sounds:Play("PetUnlock")); verify(not sounds:Play("Level"),"large reward fanfares suppress overlapping level jingles"); drainAudio()
+for _,cue in {"Panel","Error","Crystal","Checkpoint","CourseStart","Upgrade","Level","Quest","ObbyComplete","PetUnlock","ObbyReset","Mog","Travel","Purchase","Rebirth"} do
+ audioClock.Now+=2; verify(sounds:Play(cue),cue.." must have a distinct defined cue"); drainAudio(); verify(sounds.Voices==0 and #services.SoundService:GetChildren()==0)
+end
 
 local visibility=WorldVisibility.new(Engine.Worlds)
 for _,spec in Config.Worlds do
@@ -99,8 +105,102 @@ obbyClock.Now+=3; verify(obbies:Start(p,"meadow_expert"))
 course=map.meadow.Obbies.meadow_expert
 for stage=1,31 do obbyClock.Now+=.6; local platform=course.Steps[string.format("%02d",stage)]; root.Position=platform.Position+Vector3.new(0,3,0); platform.Touched:Fire(root) end
 local before=#rewards; adapter.Fail=true; obbyClock.Now+=.6; root.Position=course.Steps["32"].Position+Vector3.new(0,3,0); course.Steps["32"].Touched:Fire(root)
-verify(store:Get(1).Pets.meadow_expert==nil and #rewards==before); verify(obbies.Active[1].Stage==31 and not obbies.Active[1].Finished)
-adapter.Fail=false; obbyClock.Now+=.6; course.Steps["32"].Touched:Fire(root)
+verify(store:Get(1).Pets.meadow_expert==nil and #rewards==before); verify(obbies.Active[1].Stage==32 and obbies.Active[1].Finished and obbies.Active[1].PendingFinish)
+verify(not obbies:Cancel(p) and obbies.Active[1]~=nil,"leaving a course must not discard a verified prize waiting for a save")
+verify(not obbies:Start(p,"meadow_warmup"),"a new course cannot overwrite a pending verified prize")
+local attempts=adapter.Attempts
+for _=1,20 do obbyClock.Now+=.1; services.RunService.Heartbeat:Fire(.1) end
+verify(adapter.Attempts==attempts,"a failed prize save must back off instead of hammering storage")
+adapter.Fail=false; obbyClock.Now+=5.1; services.RunService.Heartbeat:Fire(.1)
 verify(store:Get(1).Pets.meadow_expert==1 and obbies.Active[1]==nil)
+
+-- Walk-on entry and missed physics contacts must work without any menu action.
+for _,route in Config.Obbies do
+ profile=store:Get(1); profile.CurrentWorld=route.World
+ obbyClock.Now+=3
+ local c=map[route.World].Obbies[route.Id]
+ root.Position=c.Start.Position+Vector3.new(0,3,0)
+ c.Start.Touched:Fire(root)
+ verify(obbies.Active[1] and obbies.Active[1].Stage==0,"walking onto a course must begin a tracked run")
+ c.Start.Touched:Fire(root); verify(obbies.Active[1].Stage==0,"duplicate start contacts must not restart a run")
+ local accepted=obbies:Claim(p,route.Id); verify(not accepted,"a prize cannot be claimed remotely from the entrance")
+ root.Position=c.Finish.Position
+ accepted=obbies:Claim(p,route.Id); verify(not accepted and obbies.Active[1].Stage==0,"the finish prize cannot bypass the route")
+ for stage=1,route.Count do
+  obbyClock.Now+=.6
+  local platform=c.Steps[string.format("%02d",stage)]
+  root.Position=platform.Position+Vector3.new(0,3,0)
+  -- No Touched event: the actual heartbeat handles the next physical landing.
+  services.RunService.Heartbeat:Fire(.1)
+ end
+ verify(obbies.Active[1]==nil,"every naturally entered course must finish through landing detection")
+end
+
+profile=store:Get(1); profile.CurrentWorld="meadow"; obbyClock.Now+=3
+course=map.meadow.Obbies.meadow_warmup
+root.Position=course.Start.Position+Vector3.new(0,3,0)
+services.RunService.Heartbeat:Fire(.1)
+verify(obbies.Active[1] and obbies.Active[1].Stage==0,"the entrance also recovers a missed start contact")
+for stage=1,11 do obbyClock.Now+=.6; local platform=course.Steps[string.format("%02d",stage)]; root.Position=platform.Position+Vector3.new(0,3,0); platform.Touched:Fire(root) end
+obbyClock.Now+=.6; root.Position=course.Steps["12"].Position+Vector3.new(0,3,0)
+adapter.Fail=true; local priorAttempts=adapter.Attempts
+course.Finish.ClaimPrize.Triggered:Fire(p)
+verify(adapter.Attempts==priorAttempts+1 and obbies.Active[1].PendingFinish,"a prompt recovering a missed final contact must make only one delivery attempt")
+course.Finish.ClaimPrize.Triggered:Fire(p); verify(adapter.Attempts==priorAttempts+1,"manual retries are rate limited")
+adapter.Fail=false; obbyClock.Now+=5.1; services.RunService.Heartbeat:Fire(.1)
+verify(obbies.Active[1]==nil,"the real prize prompt recovers a missed final contact")
+local rewardCount=#rewards; course.Finish.ClaimPrize.Triggered:Fire(p)
+verify(#rewards==rewardCount,"repeated prize interactions never duplicate rewards")
+
+obbyClock.Now+=3; root.Position=course.Start.Position+Vector3.new(0,3,0)
+store.Entries[1].Busy=true; course.Start.Touched:Fire(root)
+verify(obbies.Active[1] and obbies.Active[1].Stage==0,"an autosave must not swallow a real walk-on start")
+store.Entries[1].Busy=false; obbies:Cancel(p)
+
+local guideState=Engine.Clone(store:Get(1)); guideState.Objective={Course="meadow_warmup"}; guideState.ObbyRun=nil
+local guide=CourseGuide.new(Config,Engine,function() return guideState end)
+guide:Update(); verify(guide.Arrow.Enabled and guide.Arrow.Adornee==course.Start)
+guideState.ObbyRun={Id="meadow_warmup",Stage=3,Count=12}
+guide:Update(); verify(guide.Arrow.Adornee==course.Steps["04"] and guide.Text.Text=="▼ NEXT 4/12")
+guideState.CurrentWorld="candy"; guide:Update(); verify(not guide.Arrow.Enabled,"a previous island's guidance must disappear")
+guideState.CurrentWorld="meadow"; guideState.ObbyRun.Stage=12; guideState.ObbyRun.RewardPending=true
+guide:Update(); verify(guide.Arrow.Adornee==course.Finish and course.Finish.ClaimPrize.ActionText=="Retry prize save")
+guideState.ObbyRun=nil; guideState.Obby.FirstClear.meadow_warmup=true; guide:Update()
+verify(not course.Finish.ClaimPrize.Enabled and course.Finish.CourseSign.Label.Text=="PRIZE COLLECTED\nReplay from START")
+guide:Celebrate("meadow_warmup"); guide:Update(); verify(not guide.Arrow.Enabled,"a prize celebration briefly clears the guidance marker")
+local surface=object("SurfaceGui","StageNumber",course.Steps["01"])
+map.DescendantAdded:Fire(surface); visibility:SetWorld("cosmos"); verify(not surface.Enabled)
+visibility:SetWorld("meadow"); verify(surface.Enabled,"stage lettering respects island masking")
+
+-- Execute the actual effect dispatcher with explicit UI/audio boundaries. A real
+-- finish packet must open its prize card and choose the pet/route fanfare.
+services.RunService.RenderStepped=signal()
+function services.CollectionService:GetTagged(tag)
+ local list={}; for item,value in self.Tags do if value==tag then table.insert(list,item) end end; return list
+end
+function services.CollectionService:GetInstanceAddedSignal() return signal() end
+function services.CollectionService:GetInstanceRemovedSignal() return signal() end
+function services.HttpService:JSONDecode() return {} end
+local shown,played,celebrated={},{},{}
+local fakeUI={State={Settings={Effects=false,SFX=true}},Screen=object("ScreenGui","EffectTest",nil)}
+function fakeUI:ShowReward(event) table.insert(shown,event) end
+function fakeUI:DismissReward() self.Dismissed=true end
+function fakeUI:Toast(message,success) self.LastToast=message; self.LastSuccess=success end
+function fakeUI:SetSaveStatus(state) self.SaveState=state end
+local dispatcher=Effects.new(Config,Engine,require("../src/shared/Format"),{},fakeUI,{Play=function(_,cue) table.insert(played,cue) end,SyncSettings=function() end})
+dispatcher.Guide={Celebrate=function(_,id) table.insert(celebrated,id) end}
+for _,route in Config.Obbies do
+ local fresh=Engine:NewProfile(); fresh.Worlds[route.World]=true; fresh.CurrentWorld=route.World
+ local reward=Engine:CompleteRoute(fresh,route.Id,{Now=1000,Passes={}})
+ local packet={Kind="ObbyComplete",Course=route.Name,RouteId=route.Id,Amount=reward.Amount,XP=reward.XP,Pet=reward.Pet,First=reward.First,Practice=false}
+ dispatcher:Handle(packet)
+ verify(shown[#shown]==packet and shown[#shown].XP==route.FirstXP,"finish XP and pet reach the actual prize dispatcher")
+ verify(played[#played]==(if route.PetReward then "PetUnlock" else "ObbyComplete"))
+ verify(celebrated[#celebrated]==route.Id)
+end
+local finishCount=#shown; dispatcher:Handle({Kind="ObbyComplete",Practice=true}); verify(#shown==finishCount,"practice never pretends to award a prize")
+dispatcher:Handle({Kind="CourseStart",Course="Hop to the Top",Count=22}); verify(played[#played]=="CourseStart" and fakeUI.LastToast:find("22",1,true)~=nil and fakeUI.Dismissed==true)
+dispatcher:Handle({Kind="RewardStatus",Message="Saving prize"}); verify(fakeUI.LastToast=="Saving prize" and fakeUI.LastSuccess==false)
+dispatcher:Handle({Kind="SaveStatus",State="retry"}); verify(fakeUI.SaveState=="retry")
 
 print(string.format("PASS: %d new service assertions for durable saving, layered audio, island masking, and all 15 courses",newChecks))

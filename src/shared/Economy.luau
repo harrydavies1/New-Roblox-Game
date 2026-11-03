@@ -206,7 +206,7 @@ function Economy.new(config: any): any
 		if (p.Obby.StagePaidAt[key] or 0) > context.Now then return { Amount = 0, Levels = 0 } end
 		p.Obby.StagePaidAt[key] = context.Now + config.ObbyRewardCooldown
 		self:RefreshDay(p, context.Now); addAura(p, route.CheckpointAura)
-		return { Amount = route.CheckpointAura, Levels = addXP(p, 5, context.Now) }
+		return { Amount = route.CheckpointAura, XP = 5 * (if p.Boosts.XPUntil > context.Now then 2 else 1), Levels = addXP(p, 5, context.Now) }
 	end
 	function engine.CompleteRoute(self: any, p: any, id: string, context: any): any
 		local route = obbies[id]
@@ -223,7 +223,8 @@ function Economy.new(config: any): any
 			pet = route.PetReward; p.Pets[pet] = 1
 			if #p.Equipped < self:EquipSlots(context) then table.insert(p.Equipped, pet) end
 		end
-		return { Amount = amount, Levels = addXP(p, if first then route.FirstXP else route.RepeatXP, context.Now), First = first, Pet = pet, Practice = false }
+		local xp = if first then route.FirstXP else route.RepeatXP
+		return { Amount = amount, XP = xp * (if p.Boosts.XPUntil > context.Now then 2 else 1), Levels = addXP(p, xp, context.Now), First = first, Pet = pet, Practice = false }
 	end
 	function engine.MilestoneProgress(_self: any, p: any, id: string): number
 		local goal = milestones[id]
@@ -246,6 +247,17 @@ function Economy.new(config: any): any
 			if p.Aura < cost then return false, "Earn more Aura for this upgrade." end
 			p.Aura -= cost; p.Upgrade += 1
 			return true, "Click power upgraded!"
+		elseif action == "EquipBest" then
+			local owned: {string} = {}
+			for petId, level in p.Pets do if pets[petId] and level > 0 then table.insert(owned, petId) end end
+			if #owned == 0 then return false, "Earn or adopt a pet first." end
+			table.sort(owned, function(a: string, b: string): boolean
+				local av, bv = self:PetBonus(a, p.Pets[a]), self:PetBonus(b, p.Pets[b])
+				return if av == bv then a < b else av > bv
+			end)
+			p.Equipped = {}
+			for i = 1, math.min(#owned, self:EquipSlots(context)) do table.insert(p.Equipped, owned[i]) end
+			return true, "Strongest squad equipped. Certified Aura upgrade."
 		elseif action == "BuyPet" then
 			local pet = if type(id) == "string" then pets[id] else nil
 			if not pet then return false, "That pet does not exist." end

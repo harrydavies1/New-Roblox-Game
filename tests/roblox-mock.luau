@@ -37,6 +37,7 @@ function methods:FindFirstChildOfClass(class) for _,c in self._children do if c.
 function methods:WaitForChild(name) local c=self:FindFirstChild(name); assert(c,"Missing fake child "..name); return c end
 function methods:Destroy() for _,c in self:GetChildren() do c:Destroy() end; self.Parent=nil end
 function methods:GetPropertyChangedSignal(key) if not self._signals[key] then self._signals[key]=signal() end; return self._signals[key] end
+function methods:GetAttributeChangedSignal(key) return self:GetPropertyChangedSignal("attribute/"..key) end
 function methods:SetAttribute(key,value) self._attributes[key]=value end
 function methods:GetAttribute(key) return self._attributes[key] end
 function methods:PivotTo(cf) local root=self:FindFirstChild("HumanoidRootPart"); if root then root.CFrame=cf; root.Position=cf.Position end end

@@ -12,8 +12,8 @@ ROOT=Path(__file__).resolve().parents[1]
 
 
 def main():
-    for width,label in [(320,'phone'),(1280,'desktop')]:
-        layout=json.loads((ROOT/'build'/f'ui-layout-{width}.json').read_text())
+    for key,label in [('320','phone'),('1280','desktop'),('prize-phone','prize-phone'),('menu-desktop','menu-desktop')]:
+        layout=json.loads((ROOT/'build'/f'ui-layout-{key}.json').read_text())
         w,h=int(layout['Width']),int(layout['Height'])
         image=Image.new('RGB',(w,h+36),(84,102,103)); draw=ImageDraw.Draw(image)
         for y in range(h):
@@ -32,10 +32,15 @@ def main():
                 ld.rounded_rectangle(rect,radius=item['Radius'],fill=(*rgb,int(item['Alpha']*255)))
                 image=Image.alpha_composite(image.convert('RGBA'),layer).convert('RGB'); draw=ImageDraw.Draw(image)
             if item['Border']:
-                draw.rounded_rectangle(rect,radius=item['Radius'],outline=item['Border'],width=1)
+                draw.rounded_rectangle(rect,radius=item['Radius'],outline=item['Border'],width=max(1,round(item.get('BorderWidth',1))))
             if not item['Text']: continue
             font_path='/usr/share/fonts/truetype/dejavu/DejaVuSans'+('-Bold' if item['Bold'] else '')+'.ttf'
+            rounded='FredokaOne' in item.get('Font','')
+            if rounded and (ROOT/'build/Fredoka.ttf').exists(): font_path=str(ROOT/'build/Fredoka.ttf')
             font=ImageFont.truetype(font_path,max(8,int(item['FontSize'])))
+            if rounded and font_path.endswith('Fredoka.ttf'):
+                axes=font.get_variation_axes()
+                font.set_variation_by_axes([600 if a['name']==b'Weight' else a['default'] for a in axes])
             lines=[]
             for paragraph in item['Text'].splitlines():
                 current=''

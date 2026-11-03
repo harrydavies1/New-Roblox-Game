@@ -12,7 +12,7 @@ local function encode(value)
  for key,item in value do table.insert(fields,encode(key)..":"..encode(item)) end
  return "{"..table.concat(fields,",").."}"
 end
-local function exportLayout(ui)
+local function exportLayout(ui,kind)
  local rows={}
  local function color(value)
   if not value then return "#000000" end
@@ -23,17 +23,17 @@ local function exportLayout(ui)
   local w,h=item.Size.X.Scale*pw+item.Size.X.Offset,item.Size.Y.Scale*ph+item.Size.Y.Offset
   local anchor=item.AnchorPoint or Vector2.zero
   local x,y=px+item.Position.X.Scale*pw+item.Position.X.Offset-anchor.X*w,py+item.Position.Y.Scale*ph+item.Position.Y.Offset-anchor.Y*h
-  local radius=0; local border=""
+  local radius=0; local border=""; local thickness=1
   for _,child in item:GetChildren() do
    if child.ClassName=="UICorner" then radius=child.CornerRadius.Offset end
-   if child.ClassName=="UIStroke" then border=color(child.Color) end
+   if child.ClassName=="UIStroke" then border=color(child.Color); thickness=child.Thickness end
   end
-  table.insert(rows,{X=x,Y=y,W=w,H=h,Fill=color(item.BackgroundColor3),Alpha=1-(item.BackgroundTransparency or 0),Radius=radius,Border=border,
-   Text=item.Text or "",TextColor=color(item.TextColor3),FontSize=item.TextSize or 12,Bold=tostring(item.Font or ""):find("Bold")~=nil,Align=tostring(item.TextXAlignment or "Left")})
+  table.insert(rows,{X=x,Y=y,W=w,H=h,Fill=color(item.BackgroundColor3),Alpha=1-(item.BackgroundTransparency or 0),Radius=radius,Border=border,BorderWidth=thickness,
+   Text=item.Text or "",TextColor=color(item.TextColor3),FontSize=item.TextSize or 12,Bold=tostring(item.Font or ""):find("Bold")~=nil,Font=tostring(item.Font or ""),Align=tostring(item.TextXAlignment or "Left")})
   for _,child in item:GetChildren() do visit(child,x,y,w,h) end
  end
  for _,item in ui.Screen:GetChildren() do visit(item,0,0,ui.Viewport.X,ui.Viewport.Y) end
- print("UI_LAYOUT "..encode({Width=ui.Viewport.X,Height=ui.Viewport.Y,Rows=rows}))
+ print("UI_LAYOUT "..encode({Width=ui.Viewport.X,Height=ui.Viewport.Y,Name=kind or tostring(ui.Viewport.X),Rows=rows}))
 end
 local function view(p,live)
  local s=Engine.Clone(p); s.Receipts=nil; s.Sandbox=not live; s.Passes=if live then {VIP=true,ExtraPets=true,DoubleAura=true} else {}
@@ -96,8 +96,27 @@ for _,size in {{320,568},{390,844},{844,390},{1280,720},{1920,1080}} do
    for _,o in ui.Body:GetDescendants() do if o.ClassName=="TextButton" and o.Text=="Currently unavailable" then assert(o.Active==false); o.Activated:Fire(); unavailable+=1 end end
    assert(unavailable==3 and requests==before); count+=1
   end
+  ui:Close()
+  if phase==1 then
+   ui:ShowReward({Course="Hop to the Top",RouteId="meadow_sky",Pet="meadow_sky",Amount=3500,XP=350,First=true})
+   assert(ui.RewardFrame.Visible and ui.LastReward.Pet=="meadow_sky")
+   local box=ui.RewardFrame; local w,h=box.Size.X.Offset,box.Size.Y.Offset
+   local x,y=box.Position.X.Scale*width+box.Position.X.Offset,box.Position.Y.Scale*height+box.Position.Y.Offset
+   assert(x>=0 and y>=0 and x+w<=width and y+h<=height,"prize reveal must fit the safe view")
+   if size[1]==320 then exportLayout(ui,"prize-phone") end
+   ui:ToggleMenu(); assert(not ui.RewardFrame.Visible,"menu must stay usable after winning")
+   assert(ui.MenuFrame.Position.Y.Offset+ui.MenuFrame.Size.Y.Offset<=height,"menu must fit landscape as well as portrait")
+   if size[1]==1280 then exportLayout(ui,"menu-desktop") end
+   ui:Close(); assert(ui.RewardFrame.Visible)
+   local squad
+   for _,o in ui.RewardFrame:GetDescendants() do if o:IsA("TextButton") and o.Text=="VIEW HYPE SQUAD" then squad=o end end
+   assert(squad); squad.Activated:Fire(); assert(ui.Panel=="Pets" and ui.PetWorld=="meadow" and not ui.RewardFrame.Visible)
+   ui:Close(); ui.RewardVisible=false; ui.RewardFrame.Visible=false
+   ui:ShowReward({Course="Warm-up Circuit",Amount=800,XP=90,First=true}); assert(ui.LastReward.Pet==nil)
+   count+=2
+  end
   ui:Close(); ui.Screen:Destroy()
  end
 end
-assert(previews==450,previews)
+assert(previews==480,previews)
 print(string.format("PASS: %d headless UI scenarios, %d pet model previews across five viewports",count,previews))

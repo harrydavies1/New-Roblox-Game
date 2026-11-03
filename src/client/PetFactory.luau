@@ -11,7 +11,7 @@ function PetFactory.Create(d,level)
  local color,accent=Color3.fromHex(d.Color),Color3.fromHex(d.Accent)
  local ink,cream=Color3.fromRGB(43,35,68),Color3.fromRGB(255,248,233)
  local body=part(model,"Body",Vector3.zero,Vector3.new(1.9,1.65,1.8),color); model.PrimaryPart=body
- local shape=d.Shape; local face=if shape=="goose" then Vector3.new(0,1.15,-.2) else Vector3.zero
+ local shape=d.Shape; local face=if shape=="goose" then Vector3.new(0,1.15,-.2) elseif shape=="capy" then Vector3.new(0,.25,-.15) else Vector3.zero
  if shape=="goose" then
   part(model,"GooseNeck",Vector3.new(0,.6,-.2),Vector3.new(.8,1.8,.9),color)
   part(model,"GooseHead",Vector3.new(0,1.4,-.2),Vector3.new(1.6,1.4,1.5),color)
@@ -29,7 +29,23 @@ function PetFactory.Create(d,level)
   local p=part(model,"Wing",Vector3.new(x,.1,.2),size,accent,nil,CFrame.Angles(0,0,math.rad(tilt)))
   table.insert(wings,{Part=p,Offset=p.CFrame,Side=if x<0 then -1 else 1})
  end
- if shape=="bunny" then
+ if shape=="rat" then
+  for _,x in {-.9,.9} do
+   part(model,"RoundRatEar",Vector3.new(x,.85,0),Vector3.new(.95,1,.4),color)
+   part(model,"RatEarCenter",Vector3.new(x,.9,-.2),Vector3.new(.57,.62,.12),accent)
+  end
+  part(model,"RatSnout",Vector3.new(0,-.23,-1.13),Vector3.new(.8,.45,.7),accent)
+  for _,side in {-1,1} do part(model,"Whisker",Vector3.new(side*.8,-.23,-1.03),Vector3.new(.8,.055,.055),cream,Enum.PartType.Block,CFrame.Angles(0,0,side*.12)) end
+  part(model,"RatTailTip",Vector3.new(.5,-.4,1.7),Vector3.new(1.5,.18,.18),accent)
+ elseif shape=="capy" then
+  body.Size=Vector3.new(2.15,1.6,2.1)
+  part(model,"CapySnout",Vector3.new(0,-.35,-1),Vector3.new(1.7,.9,.9),color,Enum.PartType.Block)
+  for _,x in {-.65,.65} do
+   part(model,"TinyCapyEar",Vector3.new(x,.85,0),Vector3.new(.48,.5,.35),accent)
+   part(model,"RelaxedBrow",Vector3.new(x*.65,.32,-1),Vector3.new(.38,.09,.11),ink,Enum.PartType.Block)
+  end
+  part(model,"CapyNose",Vector3.new(0,-.2,-1.47),Vector3.new(.55,.18,.1),ink,Enum.PartType.Block)
+ elseif shape=="bunny" then
   for _,x in {-.5,.5} do
    part(model,"LongEar",Vector3.new(x,1.25,0),Vector3.new(.52,1.9,.55),color,nil,CFrame.Angles(0,0,-x*.2))
    part(model,"EarCenter",Vector3.new(x,1.35,-.26),Vector3.new(.24,1.2,.1),accent)
@@ -63,8 +79,13 @@ function PetFactory.Create(d,level)
   if shape=="dragon" then for _,x in {-.45,.45} do part(model,"Horn",Vector3.new(x,1,0),Vector3.new(.3,.7,.3),accent) end end
  end
  part(model,"Tail",Vector3.new(0,-.2,1.08),Vector3.new(.7,.65,1.1),accent)
+ if d.ObbyOnly then
+  local gold=Color3.fromRGB(246,194,79)
+  part(model,"EarnedMedalRibbon",Vector3.new(0,-.45,-1.04),Vector3.new(.8,.1,.12),accent,Enum.PartType.Block)
+  part(model,"EarnedMedal",Vector3.new(0,-.58,-1.1),Vector3.new(.32,.32,.12),gold,Enum.PartType.Block,CFrame.Angles(0,0,math.pi/4))
+ end
  if level>=5 then local gem=part(model,"TrainingStar",Vector3.new(0,.45,-.91),Vector3.new(.25,.25,.12),Color3.fromRGB(255,225,122),Enum.PartType.Block,CFrame.Angles(0,0,math.pi/4)); gem.Material=Enum.Material.Neon end
- if level==10 then for i=-1,1 do part(model,"Crown",Vector3.new(i*.35,1.4,-.15),Vector3.new(.25,.55-math.abs(i)*.15,.3),Color3.fromRGB(255,224,120),Enum.PartType.Block) end end
+ if level==10 then for i=-1,1 do part(model,"Crown",Vector3.new(i*.35,if shape=="goose" then 2.4 else 1.4,-.15),Vector3.new(.25,.55-math.abs(i)*.15,.3),Color3.fromRGB(255,224,120),Enum.PartType.Block) end end
  return {Model=model,Wings=wings}
 end
 return PetFactory

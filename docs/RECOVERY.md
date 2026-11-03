@@ -1,6 +1,6 @@
 # Recovery provenance
 
-This note describes the recovered release at commit `60b8ed3f9561ee0998fb698e62c1af0fa4c963da`. The current revision expands it to five islands, 15 courses, 60 crystals, and 2,218 anchored parts; see [the README](../README.md) and [progression notes](PROGRESSION.md) for current behavior.
+This note describes the recovered release at commit `60b8ed3f9561ee0998fb698e62c1af0fa4c963da`. The current revision expands it to five islands, 15 courses, 60 crystals, and 2,807 anchored parts; see [the README](../README.md), [prize revision](PRIZE_PARTY.md), and [progression notes](PROGRESSION.md) for current behavior.
 
 The earlier workspace's local `d3ef64d` commit was not present after the environment was restored, and it had not been pushed to GitHub. The retained `PrismClickers-map-check.rbxlx` contained the original four-zone primitive map plus Config, Economy, Format, RateLimiter, ServerSettings, and SessionStore. Those six modules and base geometry were extracted without executing external code.
 

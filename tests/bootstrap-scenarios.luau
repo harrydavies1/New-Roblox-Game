@@ -91,6 +91,18 @@ for stage=1,12 do
 end
 expect(storageRecords.player_101.Data.Obby.FirstClear.citadel_warmup==true,"real handler course completion must be durable")
 expect(bootStore:Get(101).Obby.Clears==1)
+local delivered
+for _,event in bootRemotes.Effect._events do if event.Data.Kind=="ObbyComplete" then delivered=event.Data end end
+expect(delivered and delivered.RouteId=="citadel_warmup" and delivered.XP==Engine.Obbies.citadel_warmup.FirstXP,"the real server must deliver the complete prize packet")
+local hardStart=request("StartObby",{Id="citadel_expert"}); expect(hardStart.Ok)
+local hardCourse=map.citadel.Obbies.citadel_expert
+for stage=1,31 do bootClock.Now+=.6; local platform=hardCourse.Steps[string.format("%02d",stage)]; bootRoot.Position=platform.Position+Vector3.new(0,3,0); platform.Touched:Fire(bootRoot) end
+storageMode.WriteAllowed=false; bootClock.Now+=.6; bootRoot.Position=hardCourse.Steps["32"].Position+Vector3.new(0,3,0); hardCourse.Steps["32"].Touched:Fire(bootRoot)
+expect(bootStore:Get(101).Pets.citadel_expert==nil,"the actual server must not reveal a pet after a failed write")
+local leavePending=request("LeaveObby"); expect(not leavePending.Ok and leavePending.State.ObbyRun.RewardPending)
+local travelPending=request("Travel",{Id="meadow"}); expect(not travelPending.Ok and travelPending.State.CurrentWorld=="citadel")
+storageMode.WriteAllowed=true; bootClock.Now+=5.1; services.RunService.Heartbeat:Fire(.1)
+expect(bootStore:Get(101).Pets.citadel_expert==1 and storageRecords.player_101.Data.Pets.citadel_expert==1,"standing still retries and durably delivers the actual server's exclusive prize")
 local save=request("SaveNow"); expect(save.Ok and save.State.Save.State=="saved")
 data=bootStore:Get(101); data.Login.FirstSeenAt=bootOs.time()-86400
 local login=request("ClaimLogin"); expect(login.Ok and login.State.Login.Claims==1 and login.State.Save.State=="saved")

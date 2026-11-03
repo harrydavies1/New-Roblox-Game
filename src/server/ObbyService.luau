@@ -12,6 +12,22 @@ function ObbyService.new(config, store, engine, callbacks)
 	for _, route in config.Obbies do
 		local course = map[route.World].Obbies:WaitForChild(route.Id)
 		self.Courses[route.Id] = course
+		-- A course must work when discovered in the world, without opening a menu.
+		course.Start.CanTouch = true
+		course.Start.Touched:Connect(function(hit)
+			local c = hit:FindFirstAncestorOfClass("Model")
+			local player = c and Players:GetPlayerFromCharacter(c)
+			if player and self:StandingOn(player, course.Start) then self:Start(player, route.Id, true) end
+		end)
+		local prize = course:WaitForChild("Finish")
+		prize.CanTouch = true
+		local claim = Instance.new("ProximityPrompt")
+		claim.Name = "ClaimPrize"; claim.ActionText = "Collect prize"; claim.ObjectText = if route.PetReward then "Aura + XP + first-clear pet" else "Aura + XP"
+		claim.MaxActivationDistance = 10; claim.RequiresLineOfSight = false; claim.HoldDuration = 0; claim.Parent = prize
+		claim.Triggered:Connect(function(player)
+			local ok, message = self:Claim(player, route.Id)
+			if not ok and message then callbacks.Notice(player, message) end
+		end)
 		for _, platform in course.Steps:GetChildren() do
 			local stage = tonumber(platform.Name)
 			platform.Touched:Connect(function(hit)
@@ -43,12 +59,28 @@ function ObbyService.new(config, store, engine, callbacks)
 	local accumulator = 0
 	RunService.Heartbeat:Connect(function(dt)
 		accumulator += dt; if accumulator < 0.1 then return end; accumulator = 0
+		for _, player in Players:GetPlayers() do
+			if not self.Active[player.UserId] then
+				local status = store:Status(player.UserId)
+				if status.Loaded then
+					for _, route in config.Obbies do
+						if route.World == status.World and self:StandingOn(player, self.Courses[route.Id].Start) then self:Start(player, route.Id, true); break end
+					end
+				end
+			end
+		end
 		for id, run in self.Active do
 			local player = Players:GetPlayerByUserId(id)
 			local root = player and player.Character and player.Character:FindFirstChild("HumanoidRootPart")
 			if not player then self.Active[id] = nil; continue end
+			-- Touched can be missed after streaming or a temporary physics interruption.
+			-- Poll only the next ordered landing; proximity to the prize cannot skip stages.
+			if not run.Finished then
+				local nextStep = self.Courses[run.Route.Id].Steps:FindFirstChild(string.format("%02d", run.Stage + 1))
+				if nextStep and self:StandingOn(player, nextStep) then self:Touch(player, run.Route.Id, run.Stage + 1, nextStep) end
+			end
 			self:Drain(player)
-			if os.clock() - run.StartedAt > 900 then self:Cancel(player); callbacks.Notice(player, "Course session expired. Start a fresh run."); continue end
+			if os.clock() - run.StartedAt > 900 and not run.PendingFinish then self:Cancel(player); callbacks.Notice(player, "Course session expired. Start a fresh run."); continue end
 			if root and not root.Anchored and not run.Finished then
 				local course = self.Courses[run.Route.Id]
 				local last = if run.Stage > 0 then course.Steps:FindFirstChild(string.format("%02d", run.Stage)) else course.Start
@@ -66,10 +98,24 @@ function ObbyService:IsNear(player, part, distance)
 	return root and not root.Anchored and h and h.Health > 0 and (root.Position - part.Position).Magnitude <= distance
 end
 
-function ObbyService:Start(player, id)
+function ObbyService:StandingOn(player, part)
+	if not part or not self:IsNear(player, part, 14) then return false end
+	local root = player.Character.HumanoidRootPart
+	local offset = root.Position - part.Position
+	local above = offset.Y - part.Size.Y / 2
+	return math.abs(offset.X) <= part.Size.X / 2 + 0.8 and math.abs(offset.Z) <= part.Size.Z / 2 + 0.8 and above >= 0.5 and above <= 5.6
+end
+
+function ObbyService:Start(player, id, walkOn)
 	local route = if type(id) == "string" then self.Engine.Obbies[id] else nil
 	local p = self.Store:Get(player.UserId)
-	if not route or not p or not p.Worlds[route.World] or p.CurrentWorld ~= route.World then return false, "Travel to this course's island first." end
+	local status = self.Store:Status(player.UserId)
+	-- A save holds the mutable profile, but should not eat a physical entrance touch.
+	-- CurrentWorld is server-owned and is always an unlocked island.
+	local admitted = route and status.Loaded and status.World == route.World and (walkOn or (p and p.Worlds[route.World]))
+	if not admitted then return false, "Travel to this course's island first." end
+	if self.Active[player.UserId] and self.Active[player.UserId].PendingFinish then return false, "Your prize is saving. Let it finish before starting another route." end
+	if walkOn and self.Active[player.UserId] then return false end
 	local now = os.clock()
 	if now - (self.LastStart[player.UserId] or -100) < 2 then return false, "Please wait a moment before restarting." end
 	local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
@@ -79,9 +125,30 @@ function ObbyService:Start(player, id)
 	self.Active[player.UserId] = ObbyRun.new(route, now)
 	self.Active[player.UserId].DeferredStages = {}
 	local point = self.Courses[id].Start.Position + Vector3.new(0, 4, 0)
-	player.Character:PivotTo(CFrame.new(point)); root.AssemblyLinearVelocity = Vector3.zero
+	if not walkOn then player.Character:PivotTo(CFrame.new(point)); root.AssemblyLinearVelocity = Vector3.zero end
+	if self.Callbacks.Started then self.Callbacks.Started(player, route) end
 	self.Callbacks.Changed(player)
 	return true, route.Name .. " started. Touch every numbered platform in order."
+end
+
+function ObbyService:Claim(player, id)
+	local route = self.Engine.Obbies[id]
+	local course = route and self.Courses[id]
+	if not course or not self:IsNear(player, course.Finish, 12) then return false, "Stand on the finish platform to collect." end
+	local run = self.Active[player.UserId]
+	if not run or run.Route.Id ~= id then return false, "Step onto START, then land on every numbered platform to earn this prize." end
+	if os.clock() - (run.LastClaimAt or -100) < 2 then return false, "Your prize is being checked. One moment." end
+	run.LastClaimAt = os.clock()
+	if not run.Finished then
+		local last = course.Steps:FindFirstChild(string.format("%02d", route.Count))
+		if run.Stage == route.Count - 1 and self:StandingOn(player, last) then self:Touch(player, id, route.Count, last) end
+		if not run.Finished then return false, "Route progress: " .. run.Stage .. "/" .. route.Count .. ". Land on every platform in order." end
+		return true -- Touch already attempted delivery; do not bypass its save backoff.
+	end
+	if self.Active[player.UserId] ~= run then return true end -- automatic finish already committed
+	run.RetryAt = 0
+	self:Drain(player)
+	return true
 end
 
 function ObbyService:Touch(player, id, stage, platform)
@@ -103,7 +170,7 @@ end
 
 function ObbyService:Drain(player)
 	local run = self.Active[player.UserId]
-	if not run or run.Completing then return end
+	if not run or run.Completing or os.clock() < (run.RetryAt or 0) then return end
 	local p = self.Store:Get(player.UserId)
 	if not p or p.CurrentWorld ~= run.Route.World then return end
 	local ctx = self.Callbacks.Context(player)
@@ -122,8 +189,14 @@ function ObbyService:Drain(player)
 		if self.Active[player.UserId] == run then self.Active[player.UserId] = nil end
 		self.Callbacks.Reward(player, "ObbyComplete", reward, run.Route)
 	else
-		run.Finished = false; run.PendingFinish = false; run.Stage = run.Route.Count - 1; run.LastAt = os.clock()
-		self.Callbacks.Notice(player, "Reward save is unavailable. Step off and onto the finish to retry safely.")
+		-- Keep a verified finish intact. Standing still must not strand a player after
+		-- a failed save; retry automatically with backoff, or from the prize prompt.
+		run.RetryAt = os.clock() + 5
+		if not run.SaveNotice then
+			run.SaveNotice = true
+			if self.Callbacks.Status then self.Callbacks.Status(player, "Your prize is ready. Saving is retrying automatically…")
+			else self.Callbacks.Notice(player, "Your prize is ready. Saving is retrying automatically…") end
+		end
 	end
 	self.Callbacks.Changed(player)
 end
@@ -151,11 +224,14 @@ end
 
 function ObbyService:View(player)
 	local run = self.Active[player.UserId]
-	return if run then { Id = run.Route.Id, Name = run.Route.Name, Stage = run.Stage, Count = run.Route.Count, Checkpoint = run.Checkpoint } else nil
+	return if run then { Id = run.Route.Id, Name = run.Route.Name, Stage = run.Stage, Count = run.Route.Count, Checkpoint = run.Checkpoint, RewardPending = run.PendingFinish == true } else nil
 end
 
 function ObbyService:Cancel(player)
+	local run = self.Active[player.UserId]
+	if run and run.PendingFinish then return false end
 	self.Active[player.UserId] = nil
+	return true
 end
 
 function ObbyService:Forget(player)

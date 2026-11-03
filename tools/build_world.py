@@ -23,7 +23,7 @@ def name(item):
 
 def prop(parent, tag, key, value):
     e = ET.SubElement(parent, tag, name=key)
-    keys = {"Vector3": ["X", "Y", "Z"], "Color3": ["R", "G", "B"], "CoordinateFrame": ["X", "Y", "Z", "R00", "R01", "R02", "R10", "R11", "R12", "R20", "R21", "R22"]}
+    keys = {"Vector2": ["X", "Y"], "Vector3": ["X", "Y", "Z"], "Color3": ["R", "G", "B"], "CoordinateFrame": ["X", "Y", "Z", "R00", "R01", "R02", "R10", "R11", "R12", "R20", "R21", "R22"]}
     if tag in keys:
         for k, v in zip(keys[tag], value, strict=True):
             ET.SubElement(e, k).text = f"{v:.6f}"
@@ -139,7 +139,79 @@ def label(parent, caption, color, offset=4, width=220):
     prop(p, "float", "BackgroundTransparency", 1); prop(p, "string", "Text", caption)
     prop(p, "Color3", "TextColor3", [int(color[i:i+2], 16)/255 for i in (0, 2, 4)])
     prop(p, "Color3", "TextStrokeColor3", (.08, .09, .12)); prop(p, "float", "TextStrokeTransparency", .3)
-    prop(p, "bool", "TextScaled", True); prop(p, "bool", "TextWrapped", True); prop(p, "token", "Font", 4)
+    prop(p, "bool", "TextScaled", True); prop(p, "bool", "TextWrapped", True); prop(p, "token", "Font", 9)
+
+
+def stage_number(platform, stage):
+    """Number the actual landing face; no floating billboard on every jump."""
+    global serial
+    serial += 1
+    gui = ET.SubElement(platform, "Item", {"class": "SurfaceGui", "referent": f"MOG{serial}"})
+    p = ET.SubElement(gui, "Properties")
+    prop(p, "string", "Name", "StageNumber"); prop(p, "token", "Face", 1)
+    prop(p, "Vector2", "CanvasSize", (128, 128)); prop(p, "float", "LightInfluence", .2)
+    serial += 1
+    text = ET.SubElement(gui, "Item", {"class": "TextLabel", "referent": f"MOG{serial}"})
+    p = ET.SubElement(text, "Properties")
+    prop(p, "string", "Name", "Number"); prop(p, "string", "Text", str(stage))
+    size = ET.SubElement(p, "UDim2", name="Size")
+    for k, v in {"XS": "1", "XO": "0", "YS": "1", "YO": "0"}.items(): ET.SubElement(size, k).text = v
+    prop(p, "float", "BackgroundTransparency", 1); prop(p, "bool", "TextScaled", True)
+    prop(p, "Color3", "TextColor3", (1, .98, .91)); prop(p, "Color3", "TextStrokeColor3", (.15, .13, .21))
+    prop(p, "float", "TextStrokeTransparency", .05); prop(p, "token", "Font", 9)
+
+
+def mascot_scene(parent, ox, oz, spec):
+    """A little aura-inspection booth and expressive local mascot, built from primitives."""
+    x, z = ox-31, oz+38
+    gold, ink = "E5B94F", "302A3D"
+    part(parent, "AuraInspectionPlinth", (x, 5.9, z), (9, 1.4, 8), spec["Cliff"])
+    part(parent, "MascotBody", (x, 8, z), (3.8, 3.1, 3.5), spec["Ground"], shape=0, collide=False)
+    head = part(parent, "CertifiedMogger", (x, 11, z), (4.5, 3.8, 3.7), spec["Trim"], shape=0, collide=False)
+    part(parent, "MascotJawline", (x, 9.7, z-1.7), (4, 1.1, 1), spec["Trim"], collide=False)
+    for side in (-1, 1):
+        part(parent, "MascotShades", (x+side*1.05, 11.4, z-1.85), (1.7, .8, .35), ink, collide=False)
+        part(parent, "MascotLensShine", (x+side*1.05-.3, 11.6, z-2.04), (.45, .12, .08), "FFF7E6", collide=False)
+        part(parent, "MascotFoot", (x+side*1.4, 6.9, z-.4), (1.6, .8, 2.3), gold, shape=0, collide=False)
+    part(parent, "MascotShadesBridge", (x, 11.5, z-1.85), (.7, .2, .35), ink, collide=False)
+    part(parent, "MascotSmile", (x, 10.4, z-2), (1.3, .12, .12), ink, collide=False)
+    if spec["Id"] in ("coral", "citadel"):
+        part(parent, "HonkerBeak", (x, 10.5, z-2.2), (2, .7, 1.8), gold, collide=False)
+    else:
+        for side in (-1, 1): part(parent, "MascotEar", (x+side*1.7, 13, z), (1.3, 1.8, 1.5), spec["Ground"], shape=0, collide=False)
+    if spec["Id"] == "candy":
+        part(parent, "MascotDumbbellBar", (x+3.7, 8.5, z-.2), (.5, .5, 4), ink, collide=False)
+        for side in (-1, 1): part(parent, "MascotDumbbellWeight", (x+3.7, 8.5, z-.2+side*1.8), (1.5, 1.5, .7), gold, collide=False)
+    if spec["Id"] == "cosmos":
+        part(parent, "MascotPlanetRing", (x, 11, z), (.22, 6.2, 6.2), spec["Color"], shape=2, roll=75, collide=False)
+    if spec["Id"] == "citadel":
+        for side in (-1, 0, 1): part(parent, "HonkerCrown", (x+side*1.2, 13.3+(1-abs(side))*.4, z), (.7, 1.3, .7), gold, collide=False)
+    label(head, {"meadow": "AURA INSPECTION\nCertified. Keep cooking.", "candy": "BROTEIN CHECK\nNever skip jump day.", "coral": "RIZZ LEVEL: DEEP\nThe reef is locked in.", "cosmos": "COSMIC SIDE EYE\nGravity can't mog you.", "citadel": "FINAL BOSS HONKER\nEarn the crown."}[spec["Id"]], spec["Trim"], 5, 170)
+
+
+def prize_pet(parent, pet, center):
+    """Match the reward's silhouette instead of displaying a cat for every pet."""
+    x, y, z = center; ink = "302A3D"
+    part(parent, "RewardPet", center, (2.8, 2.4, 2.4), pet["Color"], shape=0, collide=False)
+    face_y, face_z = y+.1, z-1.15
+    if pet["Shape"] == "goose":
+        part(parent, "PrizeGooseNeck", (x, y+1.5, z-.2), (1.1, 2.2, 1.1), pet["Color"], shape=0, collide=False)
+        part(parent, "PrizeGooseHead", (x, y+2.7, z-.2), (2, 1.8, 1.8), pet["Color"], shape=0, collide=False)
+        part(parent, "PrizeHonkerBeak", (x, y+2.4, z-1.3), (1.1, .55, 1), pet["Accent"], collide=False)
+        face_y, face_z = y+2.8, z-1.1
+    for side in (-1, 1):
+        part(parent, "RewardPetEye", (x+side*.58, face_y, face_z), (.3, .4, .18), ink, shape=0, collide=False)
+        part(parent, "RewardPetEyeShine", (x+side*.58-.04, face_y+.1, face_z-.1), (.08, .1, .05), "FFF7E8", shape=0, collide=False)
+        part(parent, "PrizePetFoot", (x+side*.7, y-1, z-.4), (.8, .45, .9), pet["Accent"], shape=0, collide=False)
+        if pet["Shape"] == "fox":
+            part(parent, "RewardPetEar", (x+side*.8, y+1.4, z), (.6, 1.2, .7), pet["Accent"], shape=0, collide=False)
+        if pet["Shape"] in ("dragon", "moth"):
+            part(parent, "PrizePetWing", (x+side*2, y+.3, z+.3), (2.4, .35, 2.4), pet["Accent"], shape=0, roll=side*25, collide=False)
+        if pet["Shape"] == "dragon":
+            part(parent, "PrizePetHorn", (x+side*.6, y+1.4, z), (.4, 1, .4), pet["Accent"], collide=False)
+        if pet["Shape"] == "axolotl":
+            for gill in (-1, 0, 1): part(parent, "PrizePetGill", (x+side*1.65, y+gill*.55, z), (1, .3, .5), pet["Accent"], shape=0, roll=side*gill*20, collide=False)
+    part(parent, "PrizeMedal", (x, y-.4, z-1.25), (.4, .4, .15), "E5B94F", roll=45, collide=False)
 
 
 def position(node):
@@ -219,6 +291,17 @@ def generate():
             setprop(node, "Material", "token", 288 if i % 4 == 0 else 272)
             setprop(node, "Color", "Color3", (.65, .77, .74))
         ox, oz = spec["Origin"]
+        # Face the sunglasses/jawline monument toward arriving players at +Z.
+        # The retained baseline put its face on the far side of the spawn camera.
+        for node in details.findall("Item"):
+            if not (name(node).startswith("MogTotem") or name(node) in {"LensHighlight", "SunglassesBridge", "GoldChain", "AuraPendant"}): continue
+            cf = props(node)["CFrame"]
+            cf.find("X").text = f"{2*ox-float(cf.findtext('X')):.6f}"
+            cf.find("Z").text = f"{2*oz-float(cf.findtext('Z')):.6f}"
+            for row in (0, 2):
+                for col in range(3):
+                    key = f"R{row}{col}"; cf.find(key).text = f"{-float(cf.findtext(key)):.6f}"
+        mascot_scene(details, ox, oz, spec)
         target = design["Worlds"][wi+1] if wi < len(design["Worlds"])-1 else design["Worlds"][0]
         gate = part(portals, target["Id"], (ox, 8, oz-72), (6, 5, 2), target["Color"], collide=False)
         label(gate, target["Name"].upper()+"\nTRAVEL / DISCOVER", target["Color"], 8)
@@ -235,6 +318,11 @@ def generate():
             angle = math.radians(route["Angle"])
             start = (ox+math.cos(angle)*112, 6.4, oz+math.sin(angle)*112)
             start_pad = part(course, "Start", start, (10, 1.4, 10), spec["Trim"])
+            setprop(start_pad, "CanTouch", "bool", True)
+            label(start_pad, "START\nWalk on · follow the numbers", spec["Trim"], 3, 150)
+            bridge_point = (ox+math.cos(angle)*99, 5.9, oz+math.sin(angle)*99)
+            bridge = part(course, "EntranceBridge", bridge_point, (29, 1.2, 9), spec["Cliff"])
+            setprop(bridge, "CFrame", "CoordinateFrame", (*bridge_point, math.cos(angle), 0, -math.sin(angle), 0, 1, 0, math.sin(angle), 0, math.cos(angle)))
             sign = part(markers, "Course_"+route["Id"], (ox+math.cos(angle)*88, 7, oz+math.sin(angle)*88), (2, 2, 2), spec["Color"], collide=False)
             reward = "AURA + XP" if not route.get("PetReward") else "FIRST CLEAR: EXCLUSIVE PET"
             label(sign, route["Name"].upper()+"\n"+reward, spec["Color"], 5)
@@ -247,26 +335,35 @@ def generate():
                 y = 6.4 + stage*(.75 if route["Difficulty"] == "warmup" else 1.15) + (1.0 if stage%4 in (2,3) else 0)
                 point = (start[0]+math.cos(angle)*forward-math.sin(angle)*lateral, y, start[2]+math.sin(angle)*forward+math.cos(angle)*lateral)
                 checkpoint = stage%route["CheckpointEvery"] == 0 or stage == route["Count"]
-                width = max(route["Width"], 7 if checkpoint else 0)
+                width = max(route["Width"], 12 if stage == route["Count"] else 7 if checkpoint else 0)
                 if route["Difficulty"] == "expert" and stage % 4 == 2: width = max(width, 5.2)
                 platform = part(steps, f"{stage:02d}", point, (width, 1.1, width), spec["Trim"] if checkpoint else spec["Ground"])
                 setprop(platform, "CanTouch", "bool", True)
+                stage_number(platform, stage)
+                part(course, "StepRim", (point[0], point[1]-.48, point[2]), (width+.15, .22, width+.15), spec["Cliff"], collide=False)
                 if checkpoint and stage != route["Count"]: label(platform, "CHECKPOINT "+str(stage), spec["Color"], 3, 130)
                 if route["Difficulty"] == "expert" and stage % 4 == 2:
                     # An offset hazard leaves a safe landing section rather than blocking the jump.
                     hazard = part(hazards, f"Hazard_{stage:02d}", (point[0]+width*.38, point[1]+.7, point[2]), (.45, .35, width), "B85D68", collide=False)
                     setprop(hazard, "CanTouch", "bool", True)
                 previous = point
-            finish = part(course, "Finish", (previous[0], previous[1]+2.2, previous[2]), (1.4, 2, 1.4), spec["Color"], neon=True, collide=False)
+            finish = part(course, "Finish", (previous[0], previous[1]+2.2, previous[2]), (1.4, 2, 1.4), spec["Color"], collide=False)
+            setprop(finish, "Transparency", "float", 1)
+            setprop(finish, "CanTouch", "bool", True)
+            chest = (previous[0]+3.3, previous[1]+1.7, previous[2]+1.6)
+            part(course, "PrizeChest", chest, (3.3, 2.1, 2.4), "D9A842", collide=False)
+            part(course, "ChestLid", (chest[0], chest[1]+1.2, chest[2]), (3.5, .7, 2.6), spec["Color"], collide=False)
+            part(course, "ChestLock", (chest[0], chest[1]+.15, chest[2]-1.25), (.65, .8, .2), "FFF1B2", collide=False)
+            for side in (-1, 1):
+                post = (previous[0]+side*5, previous[1]+3.5, previous[2]+3.5)
+                part(course, "FinishPost", post, (.45, 6, .45), spec["Cliff"], collide=False)
+                part(course, "VictoryPennant", (post[0]+side*.9, post[1]+1.5, post[2]), (1.8, 1.5, .15), spec["Color"], collide=False)
             if route.get("PetReward"):
                 pet = next(p for p in design["Pets"] if p["Id"] == route["PetReward"])
-                label(finish, "FIRST CLEAR\n"+pet["Name"], spec["Trim"], 5)
+                label(finish, "CLAIM PRIZE\n"+pet["Name"]+" · first clear", spec["Trim"], 6)
                 center = (previous[0], previous[1]+4, previous[2])
-                part(course, "RewardPet", center, (2.8, 2.4, 2.4), pet["Color"], shape=0, collide=False)
-                for side in (-1, 1):
-                    part(course, "RewardPetEye", (center[0]+side*.65, center[1]+.1, center[2]-1.15), (.3, .4, .18), "252A33", shape=0, collide=False)
-                    part(course, "RewardPetEar", (center[0]+side*.8, center[1]+1.4, center[2]), (.6, 1.2, .7), pet["Accent"], shape=0, collide=False)
-            else: label(finish, "COURSE CLEAR\n"+reward, spec["Trim"], 4)
+                prize_pet(course, pet, center)
+            else: label(finish, "BIG W!\nAura + XP prize", spec["Trim"], 5)
     # Deep copies need fresh referents; there are no cross-object Ref properties in this model.
     for index, node in enumerate(root.iter("Item")): node.set("referent", f"WORLD{index}")
     ET.indent(root, space="  ")

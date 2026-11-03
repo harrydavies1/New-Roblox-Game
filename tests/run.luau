@@ -233,5 +233,24 @@ test("every tutorial objective points to a real panel or course",function()
  p.Obby.FirstClear.meadow_sky=true; goal=Objectives.get(p,Config,Engine); eq(goal.Panel,"Worlds")
 end)
 
+test("equip best selects only owned pets by real trained bonus and verified slot limit",function()
+ local p=profile(); assert(not act(p,"EquipBest",nil))
+ for i,pet in Config.Pets do p.Pets[pet.Id]=if i%2==0 then 10 else 1 end
+ local prior=Engine.Clone(p.Pets)
+ assert(Engine:Apply(p,"EquipBest",{},ctx()))
+ eq(#p.Equipped,3)
+ for id,level in p.Pets do if not table.find(p.Equipped,id) then assert(Engine:PetBonus(id,level)<=Engine:PetBonus(p.Equipped[3],p.Pets[p.Equipped[3]])) end end
+ for i,id in p.Equipped do
+  assert(p.Pets[id]); if i>1 then assert(Engine:PetBonus(p.Equipped[i-1],p.Pets[p.Equipped[i-1]])>=Engine:PetBonus(id,p.Pets[id])) end
+ end
+ local c=ctx(); c.Passes.ExtraPets=true; assert(Engine:Apply(p,"EquipBest",{},c)); eq(#p.Equipped,5)
+ for id,level in prior do eq(p.Pets[id],level) end
+end)
+test("finish and checkpoint receipts expose the XP actually awarded including boosts",function()
+ local p=profile(); p.Boosts.XPUntil=ctx().Now+100
+ local reward=Engine:CompleteRoute(p,"meadow_sky",ctx()); eq(reward.XP,Engine.Obbies.meadow_sky.FirstXP*2)
+ eq(Engine:CheckpointReward(p,"meadow_sky",8,ctx()).XP,10)
+end)
+
 print(string.format("\n%d passed, %d failed",passed,failed))
 if failed>0 then error("Core suite failed") end

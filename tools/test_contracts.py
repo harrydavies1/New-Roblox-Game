@@ -21,6 +21,8 @@ def main():
     modules+=wrapped('Storage','src/server/Storage.luau','local script={Parent={SessionStore=true}}; local require=function() return Store end')
     modules+=wrapped('Audio','src/client/Audio.luau','local task=audioTask; local os={clock=function() return audioClock.Now end}')
     modules+=wrapped('WorldVisibility','src/client/WorldVisibility.luau')
+    modules+=wrapped('CourseGuide','src/client/CourseGuide.luau')
+    modules+=wrapped('Effects','src/client/Effects.luau')
     services=base+(ROOT/'tests/service-scenarios.luau').read_text().replace('-- MODULES --',modules)+(ROOT/'tests/new-service-scenarios.luau').read_text()
     boot_modules=wrapped('BootWorldService','src/server/WorldService.luau')
     boot_modules+=wrapped('BootObbyService','src/server/ObbyService.luau','local os=bootOs; local script={Parent={ObbyRun=true}}; local require=function() return ObbyRun end')
@@ -35,7 +37,9 @@ def main():
         for line in result.stdout.splitlines():
             if line.startswith('UI_LAYOUT '):
                 layout=json.loads(line[len('UI_LAYOUT '):])
-                (ROOT/'build'/f'ui-layout-{int(layout["Width"])}.json').write_text(json.dumps(layout,indent=2)+'\n')
+                label=layout.get('Name',str(int(layout['Width'])))
+                assert all(c.isalnum() or c=='-' for c in label)
+                (ROOT/'build'/f'ui-layout-{label}.json').write_text(json.dumps(layout,indent=2)+'\n')
             else: print(line)
         if result.stderr: print(result.stderr,end='')
         result.check_returncode()

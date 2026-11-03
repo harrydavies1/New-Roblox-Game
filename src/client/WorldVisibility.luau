@@ -7,7 +7,7 @@ function WorldVisibility.new(worlds)
 	local function apply(object, id)
 		local visible = id == self.Current
 		if object:IsA("BasePart") then object.LocalTransparencyModifier = if visible then 0 else 1
-		elseif object:IsA("BillboardGui") or object:IsA("ProximityPrompt") or object:IsA("ParticleEmitter") then object.Enabled = visible end
+		elseif object:IsA("BillboardGui") or object:IsA("SurfaceGui") or object:IsA("ProximityPrompt") or object:IsA("ParticleEmitter") then object.Enabled = visible end
 	end
 	local function register(object)
 		local parent = object

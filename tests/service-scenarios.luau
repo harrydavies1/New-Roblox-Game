@@ -6,6 +6,7 @@ local function check(value,message) assert(value,message); checks+=1 end
 local function object(class,name,parent) local o=Instance.new(class); o.Name=name; o.Parent=parent; return o end
 local users={}; local players=object("Players","Players",nil)
 function players:GetPlayerByUserId(id) return users[id] end
+function players:GetPlayers() local list={}; for _,who in users do table.insert(list,who) end; return list end
 function players:GetPlayerFromCharacter(character)
  for _,player in users do if player.Character==character then return player end end
  return nil
@@ -32,7 +33,7 @@ local storageMode={Studio=true,ReadAllowed=false,InitAllowed=true}
 local storageRecords={}
 local storageAdapter={}
 function storageAdapter:GetAsync(key) if not storageMode.ReadAllowed then error("Studio API access disabled") end; return storageRecords[key] end
-function storageAdapter:UpdateAsync(key,f) local value=f(Engine.Clone(storageRecords[key])); if value then storageRecords[key]=Engine.Clone(value) end; return Engine.Clone(value) end
+function storageAdapter:UpdateAsync(key,f) if storageMode.WriteAllowed==false then error("simulated storage write failure") end; local value=f(Engine.Clone(storageRecords[key])); if value then storageRecords[key]=Engine.Clone(value) end; return Engine.Clone(value) end
 services.DataStoreService={GetDataStore=function(_,name) if not storageMode.InitAllowed then error("service unavailable") end; return storageAdapter end}
 local guid=0
 services.HttpService={GenerateGUID=function() guid+=1; return "contract-"..guid end}
@@ -54,11 +55,14 @@ for wi,w in Config.Worlds do
  for _,route in Config.Obbies do
   if route.World~=w.Id then continue end
   local course=object("Folder",route.Id,courses)
-  local start=object("Part","Start",course); start.Position=Vector3.new(w.Origin[1]+112,6.4,0)
+  local start=object("Part","Start",course); start.Position=Vector3.new(w.Origin[1]+112,6.4,0); start.Size=Vector3.new(10,1.4,10)
   local steps=object("Folder","Steps",course); local hazards=object("Folder","Hazards",course)
   for i=1,route.Count do
    local step=object("Part",string.format("%02d",i),steps); step.Position=Vector3.new(w.Origin[1]+112+i*route.Spacing,6.4+i,0); step.Size=Vector3.new(route.Width,1.1,route.Width)
   end
+  local finish=object("Part","Finish",course); finish.Position=steps[string.format("%02d",route.Count)].Position+Vector3.new(0,2.2,0); finish.Size=Vector3.new(1.4,2,1.4)
+  local sign=object("BillboardGui","CourseSign",finish); object("TextLabel","Label",sign)
+  local lid=object("Part","ChestLid",course); lid.CFrame=CFrame.new(finish.Position)
   local hazard=object("Part","Hazard",hazards); hazard.Position=steps["02"].Position+Vector3.new(2,.7,0)
   local marker=object("Part","Course_"..route.Id,markers); marker.Position=Vector3.new(w.Origin[1]+88,7,0)
  end
@@ -92,8 +96,8 @@ local root=p.Character.HumanoidRootPart; root.Position=Vector3.new(500,8,500); m
 root.Position=Vector3.zero; map.meadow.Portals.candy:FindFirstChildOfClass("ProximityPrompt").Triggered:Fire(p); map.meadow.Markers.PetShop:FindFirstChildOfClass("ProximityPrompt").Triggered:Fire(p); check(traveled==1 and opened==1)
 check(world:Teleport(p,"cosmos")); check(root.Position.X==18000 and root.Position.Z==29 and root.Position.Y==9.5); check(not root.Anchored and p._streamRequests[1].Anchored); check(not world:Teleport(p,"forged"))
 p.Character.Humanoid.Health=0; check(not world:Teleport(p,"meadow")); p.Character.Humanoid.Health=100
-local records={}; local adapter={Fail=false}
-function adapter:UpdateAsync(key,f) if self.Fail then error("simulated outage") end; local r=f(Engine.Clone(records[key])); if r then records[key]=Engine.Clone(r) end; return Engine.Clone(r) end
+local records={}; local adapter={Fail=false,Attempts=0}
+function adapter:UpdateAsync(key,f) self.Attempts+=1; if self.Fail then error("simulated outage") end; local r=f(Engine.Clone(records[key])); if r then records[key]=Engine.Clone(r) end; return Engine.Clone(r) end
 local store=Store.new(adapter,{Clock=function() return 1000 end,SessionId="test",LeaseSeconds=180,Normalize=function(raw) return Engine:Normalize(raw) end,Prepare=function(profile,now) Engine:Initialize(profile,now) end}); check(store:Load(1)~=nil)
 local settings={ProductIds={},PassIds={}}
 for i,v in Config.Products do settings.ProductIds[v.Key]=5000+i end

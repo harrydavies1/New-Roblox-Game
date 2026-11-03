@@ -113,6 +113,8 @@ local function warp(player, id, force)
 	local profile = store:Get(player.UserId)
 	local rt = runtime[player.UserId]
 	if not profile or not rt or not Engine.Worlds[id] or not profile.Worlds[id] then return false, "Discover this island first." end
+	local pending = obbies and obbies:View(player)
+	if pending and pending.RewardPending then return false, "Your prize is saving and retries automatically. Travel unlocks once it is delivered." end
 	if rt.Travelling or (not force and os.clock() - rt.LastTeleport < 2) then return false, "Your portal is recharging." end
 	rt.Travelling = true
 	rt.LastTeleport = os.clock()
@@ -156,6 +158,8 @@ worldService = WorldService.new(Config, {
 obbies = ObbyService.new(Config, store, Engine, {
 	Context = context,
 	Changed = function(player) changed(player, false) end,
+	Started = function(player, route) sendEffect(player, { Kind = "CourseStart", Course = route.Name, Count = route.Count }) end,
+	Status = function(player, message) sendEffect(player, { Kind = "RewardStatus", Message = message }) end,
 	Open = function(player, id) sendEffect(player, { Kind = "OpenCourse", Id = id }) end,
 	Notice = function(player, message) sendEffect(player, { Kind = "ObbyReset", Message = message }) end,
 	Reward = function(player, kind, reward, route)
@@ -164,7 +168,7 @@ obbies = ObbyService.new(Config, store, Engine, {
 			if kind == "ObbyComplete" then rt.Unsaved = false; rt.SaveError = false
 			elseif reward.Amount > 0 then rt.Unsaved = true end
 		end
-		sendEffect(player, { Kind = kind, Amount = reward.Amount, Pet = reward.Pet, First = reward.First, Practice = reward.Practice, Course = route.Name })
+		sendEffect(player, { Kind = kind, Amount = reward.Amount, XP = reward.XP, Pet = reward.Pet, First = reward.First, Practice = reward.Practice, Course = route.Name, RouteId = route.Id })
 		changed(player, false)
 	end,
 })
@@ -194,6 +198,10 @@ action.OnServerInvoke = function(player, name, payload)
 	if type(payload.Value) == "boolean" then safe.Value = payload.Value end
 	local profile, reason = store:Get(player.UserId)
 	if not profile then return { Ok = false, Message = if reason == "busy" then "Saving your progress. Try again in a moment." else "Your adventure is loading." } end
+	local run = obbies:View(player)
+	if run and run.RewardPending and (name == "Travel" or name == "UnlockWorld" or name == "StartObby" or name == "LeaveObby" or name == "RetryObby") then
+		return { Ok = false, Message = "Your verified prize is saving. It retries automatically; course changes and travel resume after delivery.", State = snapshot(player) }
+	end
 	local ok, message
 	if name == "Purchase" then ok, message = commerce:Prompt(player, safe.Id)
 	elseif name == "Travel" then ok, message = warp(player, safe.Id)

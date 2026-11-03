@@ -73,6 +73,10 @@ def main():
         details = child(island, "Details")
         for landmark in ("MogTotemHead", "MogTotemJaw", "AuraPendant"):
             child(details, landmark)
+        child(details, "CertifiedMogger")
+        nose = vector(child(details, "MogTotemNose"), "CFrame")
+        ox, oz = spec["Origin"]
+        assert (nose[0]-ox)*(spawn[0]-ox)+(nose[2]-oz)*(spawn[2]-oz) > 0, "The mog monument should face arriving players"
         land = child(island, "Landscape")
         assert not any(name(n) == "SkyStep" for n in land.findall("Item"))
         cliff = child(land, "FloatingIsland")
@@ -89,9 +93,14 @@ def main():
             assert len(steps) == route["Count"]
             assert len(steps) >= (12 if route["Difficulty"] == "warmup" else 22)
             previous = vector(child(course, "Start"), "CFrame")
+            assert property_node(child(course, "Start"), "CanTouch").text == "true"
+            bridge = child(course, "EntranceBridge")
+            assert property_node(bridge, "CanCollide").text == "true"
+            assert math.dist(vector(bridge, "CFrame"), previous) < 15
             for stage, platform in enumerate(steps, 1):
                 assert name(platform) == f"{stage:02d}"
                 assert property_node(platform, "CanTouch").text == "true"
+                assert property_node(child(child(platform, "StageNumber"), "Number"), "Text").text == str(stage)
                 point = vector(platform, "CFrame")
                 rise = point[1] - previous[1]
                 discriminant = 50**2 - 2*150*rise
@@ -102,7 +111,10 @@ def main():
                 assert rise < 3 and vector(platform, "Size")[0] >= route["Width"]
                 previous = point
                 stage_count += 1
-            child(course, "Finish")
+            assert property_node(child(course, "Finish"), "CanTouch").text == "true"
+            for key in ("PrizeChest", "ChestLid", "ChestLock"):
+                assert property_node(child(course, key), "CanCollide").text == "false", "Prize decoration must not block the landing"
+            assert vector(steps[-1], "Size")[0] >= 12
             hazards = child(course, "Hazards").findall("Item")
             assert bool(hazards) == (route["Difficulty"] == "expert")
             for hazard in hazards:
@@ -150,7 +162,7 @@ def main():
     for key in ("Commerce", "WorldService", "SessionStore", "RateLimiter", "ServerSettings", "Storage", "ObbyService", "ObbyRun"):
         child(server, key)
     client = child(child(child(root, "StarterPlayer"), "StarterPlayerScripts"), "MogClient")
-    for key in ("UI", "PetFactory", "MogPose", "Effects", "Audio", "WorldVisibility"):
+    for key in ("UI", "PetFactory", "MogPose", "Effects", "Audio", "WorldVisibility", "CourseGuide"):
         child(client, key)
     mapped = set()
     def walk(node):

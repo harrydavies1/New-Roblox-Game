@@ -26,7 +26,7 @@ Every unlock requires the previous zone, spends Aura once, and travels to the ne
 
 ## Course rewards
 
-Each island has three separately tracked courses. Warm-ups have 12 stages and checkpoints every four. Hard routes have 22 stages, experts 32, with checkpoints every eight. Hard/expert platforms are narrower and experts add hazard strips. Every numbered stage must be touched in order, near the real platform, while alive and in the correct world. Minimum stage/finish timing rejects impossible quick completions; it is not a full movement anticheat.
+Each island has three separately tracked courses. Walking onto START begins a run, including during autosave; the menu can also start one. Warm-ups have 12 stages and checkpoints every four. Hard routes have 22 stages, experts 32, with checkpoints every eight. Hard/expert platforms are narrower and experts add hazard strips. Every numbered stage must be reached in order, near the real platform, while alive and in the correct world. The server checks contacts and polls the next physical landing to recover missed contacts; the prize prompt cannot skip the course. Minimum stage/finish timing rejects impossible quick completions; it is not a full movement anticheat.
 
 | Starter course | First Aura / XP | Repeat Aura / XP | Checkpoint Aura | First-clear pet |
 | --- | ---: | ---: | ---: | --- |
@@ -36,11 +36,11 @@ Each island has three separately tracked courses. Warm-ups have 12 stages and ch
 
 For island tier 1–5, course/checkpoint Aura scales by `5^(tier − 1)` and finish XP by `tier^3`. Checkpoints also give five base XP. First-clear rewards are higher than repeats. Each route and each checkpoint has a five-minute saved reward cooldown. Repeating a finished route early is practice: no finish payout and no clear/task increment. First clears, pets, and cooldowns commit together before the finish reward appears.
 
-Checkpoints are for the active run, not permanent resume points. Falling, hazards, or death return to the latest checkpoint; replacing/leaving the course or leaving the server ends that run. A run expires after 15 minutes. A storage failure at the finish lets the player retry by stepping off and back on without redoing a successful save.
+Checkpoints are for the active run, not permanent resume points. Falling, hazards, or death return to the latest checkpoint; replacing/leaving the course or leaving the server ends that run. Unfinished runs expire after 15 minutes. A storage failure keeps the verified finish in this server session and retries every five seconds, or through the nearby prize prompt with a two-second manual retry limit. Standing still works; no pet or finish reward appears before durable success. A prize card shows Aura, actual boosted XP, and the earned pet, with a shortcut to its collection.
 
 ## Pets and recurring goals
 
-Fifteen shop pets range from 1,500 Aura to two billion Aura. Each hard/expert course gives its own guaranteed exclusive pet on the first clear, for ten additional pets. Aura cannot buy the first copy of an exclusive pet. Owned pets train up to level ten with `floor(baseCost × 1.8^currentPetLevel)` Aura. Training improves bonuses; there are no random eggs or paid pet rerolls.
+Fifteen shop pets range from 1,500 Aura to two billion Aura. Each hard/expert course gives its own guaranteed exclusive pet on the first clear, for ten additional pets. Aura cannot buy the first copy of an exclusive pet. Owned pets train up to level ten with `floor(baseCost × 1.8^currentPetLevel)` Aura. Equip best fills only the verified free/pass slots with the highest current trained bonuses, without spending currency. Training improves bonuses; there are no random eggs or paid pet rerolls.
 
 Daily tasks ask for 300 accepted clicks, 12 crystals, and two rewarded course completions. They reset at 00:00 UTC. Eleven permanent journal milestones cover clicks, pets, zones, rebirths, earned Aura, and course clears; two give free titles.
 

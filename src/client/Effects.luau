@@ -14,19 +14,19 @@ function Effects.new(config,engine,format,factory,ui,audio)
   audio:Play(kind)
  end
  function self:Float(amount)
-  if not enabled("Effects") or self.FloatCount>=5 then return end; self.FloatCount+=1
+  if amount<=0 or not enabled("Effects") or self.FloatCount>=5 then return end; self.FloatCount+=1
   local label=Instance.new("TextLabel"); label.BackgroundTransparency=1; label.Text="+"..format.number(amount).." Aura"
-  label.Font=Enum.Font.GothamMedium; label.TextSize=14; label.TextColor3=Color3.fromRGB(194,219,201); label.TextStrokeColor3=Color3.fromRGB(22,25,31); label.TextStrokeTransparency=.3
+  label.Font=Enum.Font.FredokaOne; label.TextSize=17; label.TextColor3=Color3.fromRGB(255,215,106); label.TextStrokeColor3=Color3.fromRGB(43,38,61); label.TextStrokeTransparency=.05
   label.Size=UDim2.fromOffset(220,40); label.AnchorPoint=Vector2.new(.5,.5); label.ZIndex=15
   local dx=math.random(-35,35); label.Position=UDim2.new(.5,dx,1,-125); label.Parent=ui.Screen
   local tween=TweenService:Create(label,TweenInfo.new(.7,Enum.EasingStyle.Quad,Enum.EasingDirection.Out),{Position=UDim2.new(.5,dx,1,-166),TextTransparency=1,TextStrokeTransparency=1})
   tween.Completed:Once(function() label:Destroy(); self.FloatCount-=1 end); tween:Play()
  end
  function self:Celebrate()
-  self:Sound("Level"); if not enabled("Effects") then return end
+  if not enabled("Effects") then return end
   for i=1,8 do
    local p=Instance.new("Frame"); p.BorderSizePixel=0; p.Size=UDim2.fromOffset(7,11); p.Rotation=i*31; p.ZIndex=16
-   p.BackgroundColor3=Color3.fromHex(({"C1AC80","88B39A","BC91AB","9E92B8","7EADB7"})[i%5+1]); p.Position=UDim2.new(.5,0,1,-120); p.Parent=ui.Screen
+   p.BackgroundColor3=Color3.fromHex(({"FFC440","AEDF68","F19189","C69FF5","7DC7F1"})[i%5+1]); p.Position=UDim2.new(.5,0,1,-120); p.Parent=ui.Screen
    TweenService:Create(p,TweenInfo.new(.9,Enum.EasingStyle.Quad,Enum.EasingDirection.Out),{Position=UDim2.new(.5,math.random(-95,95),1,math.random(-190,-100)),Rotation=i*80,BackgroundTransparency=1}):Play(); Debris:AddItem(p,1)
   end
  end
@@ -45,12 +45,15 @@ function Effects.new(config,engine,format,factory,ui,audio)
    if actor==Players.LocalPlayer then self:Sound("Mog") end
   elseif event.Kind=="OpenPanel" then if ui.Panel~=event.Panel then ui:Open(event.Panel) end
   elseif event.Kind=="OpenCourse" then ui.SelectedCourse=event.Id; if ui.Panel~="Obbies" then ui:Open("Obbies") else ui:Render() end
-  elseif event.Kind=="Checkpoint" then self:Sound("Checkpoint"); if event.Amount>0 then ui:Toast("Checkpoint reached · +"..format.number(event.Amount).." Aura") end
+  elseif event.Kind=="CourseStart" then ui:DismissReward(); self:Sound("CourseStart"); ui:Toast("LOCKED IN! "..event.Course.." · follow all "..event.Count.." numbers")
+  elseif event.Kind=="RewardStatus" then ui:Toast(event.Message,false)
+  elseif event.Kind=="Checkpoint" then if event.Amount>0 then self:Sound("Checkpoint"); ui:Toast("CHECKPOINT W! +"..format.number(event.Amount).." Aura"); self:Float(event.Amount) end
   elseif event.Kind=="ObbyComplete" then
-   if event.Practice then ui:Toast("Practice clear · rewards are still cooling down.")
+   if event.Practice then ui:Toast("Practice clear · rewards are still cooling down.",false)
    else
-    self:Celebrate(); self:Sound("ObbyComplete")
-    ui:Toast(event.Course.." cleared · +"..format.number(event.Amount).." Aura"..(if event.Pet then " · "..engine.Pets[event.Pet].Name.." earned!" else ""))
+    self:Celebrate(); self:Sound(if event.Pet then "PetUnlock" else "ObbyComplete")
+    ui:ShowReward(event)
+    if self.Guide then self.Guide:Celebrate(event.RouteId) end
    end
   elseif event.Kind=="ObbyReset" then self:Sound("ObbyReset"); ui:Toast(event.Message)
   elseif event.Kind=="SaveStatus" then ui:SetSaveStatus(event.State)
@@ -114,6 +117,7 @@ function Effects.new(config,engine,format,factory,ui,audio)
  end
  local lastDetail=0
  RunService.RenderStepped:Connect(function(dt)
+  audio:SyncSettings()
   local now=os.clock(); local animate=enabled("Effects"); local camera=workspace.CurrentCamera; if not camera then return end
   if now-lastDetail>1/30 then
    lastDetail=now
