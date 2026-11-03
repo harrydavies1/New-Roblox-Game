@@ -1,0 +1,8 @@
+/build/
+/.tools/
+/sourcemap.json
+*.rbxl.lock
+*.rbxlx.lock
+__pycache__/
+*.pyc
+.DS_Store

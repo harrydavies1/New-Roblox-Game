@@ -1,0 +1,15 @@
+{
+ "name":"MOG MODE",
+ "tree": {
+  "$className":"DataModel",
+  "ReplicatedStorage":{"MogShared":{"$path":"src/shared"}},
+  "ServerScriptService":{"MogServer":{"$path":"src/server"}},
+  "StarterPlayer":{"$properties":{"CameraMaxZoomDistance":65,"CameraMinZoomDistance":8},"StarterPlayerScripts":{"MogClient":{"$path":"src/client"}}},
+  "Workspace":{"$properties":{"Gravity":150,"StreamingEnabled":true,"StreamingMinRadius":128,"StreamingTargetRadius":256,"FallenPartsDestroyHeight":-100},"MogWorld":{"$path":"src/world/MogWorld.rbxmx"}},
+  "Lighting":{"$properties":{"Ambient":[0.62,0.64,0.8],"OutdoorAmbient":[0.7,0.72,0.85],"Brightness":2.5,"ClockTime":13.5,"GlobalShadows":true,"EnvironmentDiffuseScale":0.6,"EnvironmentSpecularScale":0.5},
+   "Atmosphere":{"$className":"Atmosphere","$properties":{"Density":0.22,"Offset":0.2,"Color":[0.76,0.86,1],"Decay":[0.62,0.72,1],"Haze":1.1}},
+   "Bloom":{"$className":"BloomEffect","$properties":{"Intensity":0.18,"Size":24,"Threshold":1.1}},
+   "Color":{"$className":"ColorCorrectionEffect","$properties":{"Saturation":0.13,"Contrast":0.04}}},
+  "SoundService":{"$properties":{"RespectFilteringEnabled":true}}
+ }
+}

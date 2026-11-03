@@ -1,0 +1,26 @@
+{
+  "game": "MOG MODE",
+  "rojo": "7.7.1",
+  "luau": "0.745",
+  "game_sha256": "3011d5879bd231b2b81a773f3c6ae7951ea7fe19e35d0258d8ce35a0b6a527ee",
+  "source_sha256": {
+    "assets/base-world.rbxmx": "9c4cd08042971c40f412e4e27de74d9ec5d81eb7beb31a80681ecc630211bd1a",
+    "default.project.json": "dcae506a48291bfb80bc4d2aa35f62183acbb6afd2d2ac3bfc8bf7b679d8dcef",
+    "src/client/Effects.luau": "c99ea248d8b00ce6c1e21d05d134af1fb32217e9a671568dc9249353a14e9cb8",
+    "src/client/MogPose.luau": "1d87e8e32f8eea607e9cdaaa39d0999fadefcb6bdeaacaa13b087b02ebe80f29",
+    "src/client/PetFactory.luau": "0c0dbb64019caaad96dfba97cff0cb181f1b41ecadcd158f0905e6885d315e9f",
+    "src/client/UI.luau": "829bf9bedb5c16cded4a514f691134dd7328195787d33fc49e0e28f40f3c7e1d",
+    "src/client/init.client.luau": "e4f9438f78baf6865683a41d9dc667e73bac4425b43e5e925f7b0c8368c0bdfb",
+    "src/server/Commerce.luau": "dae7b4ca45e3001ac9dd5a727b7cf52c39fcd2586e8a4fe0f79364c0c011b0f1",
+    "src/server/RateLimiter.luau": "b4830548ceb7c0fc59a14be62b6d6c97549e37748eb50a395af0610e16dbabe2",
+    "src/server/ServerSettings.luau": "e3bb63b606e351b2de6a683d1f859d6b3885f2d40f631920ec33c06035a8a3b2",
+    "src/server/SessionStore.luau": "00ee63dd26d6927c2535472b4be0e7920e88d8600ca8f2eb80fe9002b1a7e8b2",
+    "src/server/WorldService.luau": "4574ceadee7e39124e436a2ba97ed78ca76d94c64b1c16650a2c5b64d9a1071a",
+    "src/server/init.server.luau": "4addc3ff1670b87971169a61fbb1367ca018598137e59adaf2ae3dcf336679dd",
+    "src/shared/Config.luau": "b8dd4d6d54ca88c87efddcaa945032b30dc240c7c612ea171cdac215417d7b6e",
+    "src/shared/Economy.luau": "786eabb418a8f25f93653f1422ae3f634f8cafb83d51e0fc7fed956e508911fb",
+    "src/shared/Format.luau": "bfa7f676d7794a7b87aa4d800bc7928974bfce85553e7f00301751758efb84b1",
+    "src/world/MogWorld.rbxmx": "4a88ecdbb73e1c380fc181104638dfad51238a04012e2a8fc1825b5c65c4fb47"
+  },
+  "studio_playtested": false
+}
