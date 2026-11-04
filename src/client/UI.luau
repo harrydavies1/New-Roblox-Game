@@ -4,6 +4,8 @@ local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 local GuiService = game:GetService("GuiService")
 local RunService = game:GetService("RunService")
+local Menu = require(script.Parent.Menu)
+local MenuIcons = require(script.Parent.MenuIcons)
 
 local UI = {}
 local Theme = {
@@ -103,7 +105,9 @@ function UI.new(config, engine, format, callbacks)
 	local worldBadge = label(root, "", 9, UDim2.fromOffset(145, 59), UDim2.fromOffset(180, 14), Theme.Secondary, false)
 	for _, badge in { saveBadge, worldBadge } do badge.TextColor3 = Color3.fromRGB(255, 251, 237); badge.TextStrokeColor3 = Theme.Ink; badge.TextStrokeTransparency = .25 end
 	local menuButton = button(root, "MENU", UDim2.new(1, -58, 0, 8), UDim2.fromOffset(46, 47), false, function() self:ToggleMenu() end)
-	menuButton.TextSize = 11; menuButton.BackgroundColor3 = Theme.Blue
+	menuButton.Text = ""; menuButton.BackgroundColor3 = Theme.Gold
+	for i = 0,2 do local bar = create("Frame", { Position = UDim2.fromOffset(12,10+i*6), Size = UDim2.fromOffset(22,3), BackgroundColor3 = Theme.Ink, BorderSizePixel = 0 },menuButton); round(bar,2) end
+	local menuCaption = label(menuButton,"MENU",8,UDim2.fromOffset(3,30),UDim2.fromOffset(40,14),Theme.Ink,true); menuCaption.TextXAlignment = Enum.TextXAlignment.Center
 	local objective = button(root, "", UDim2.fromOffset(12, 81), UDim2.fromOffset(220, 68), false, function()
 		if self.State and self.State.ObbyRun then self.SelectedCourse = self.State.ObbyRun.Id; self.CourseWorld = engine.Obbies[self.SelectedCourse].World; self:Open("Obbies")
 		elseif self.State and self.State.Objective then
@@ -135,30 +139,22 @@ function UI.new(config, engine, format, callbacks)
 	local meter = label(root, "F / X", 8, UDim2.new(0.5, -78, 1, -17), UDim2.fromOffset(156, 13), Color3.fromRGB(255, 250, 233), false); meter.TextXAlignment = Enum.TextXAlignment.Center; meter.TextStrokeColor3 = Theme.Ink; meter.TextStrokeTransparency = .2
 	self.HudElements = { counters, menuButton, objective, clickButton, saveBadge, worldBadge, upgradeQuick, shopQuick, meter }
 
-	local menuDismiss = create("TextButton", { Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Text = "", Visible = false, ZIndex = 3 }, root)
-	local menu = create("Frame", { Position = UDim2.new(1, -240, 0, 62), Size = UDim2.fromOffset(228, 392), BackgroundColor3 = Theme.Background, BorderSizePixel = 0, Visible = false, ZIndex = 4 }, root)
-	self.MenuFrame = menu
-	round(menu, 9); outline(menu)
-	label(menu, "MOG MODE", 20, UDim2.fromOffset(14, 7), UDim2.new(1, -28, 0, 26), Theme.Ink, true)
-	local mascot = create("Frame", { Position = UDim2.new(1, -42, 0, 7), Size = UDim2.fromOffset(28, 24), BackgroundColor3 = Theme.Gold, BorderSizePixel = 0, Rotation = 7 }, menu)
-	round(mascot, 8); outline(mascot)
-	for _, x in { 4, 16 } do round(create("Frame", { Position = UDim2.fromOffset(x, 6), Size = UDim2.fromOffset(8, 7), BackgroundColor3 = Theme.Ink, BorderSizePixel = 0 }, mascot), 2) end
-	create("Frame", { Position = UDim2.fromOffset(11, 7), Size = UDim2.fromOffset(6, 2), BackgroundColor3 = Theme.Ink, BorderSizePixel = 0 }, mascot)
-	create("Frame", { Position = UDim2.fromOffset(9, 18), Size = UDim2.fromOffset(12, 2), BackgroundColor3 = Theme.Ink, BorderSizePixel = 0 }, mascot)
-	local menuList = create("ScrollingFrame", { Position = UDim2.fromOffset(0, 37), Size = UDim2.new(1, 0, 1, -44), CanvasSize = UDim2.fromOffset(0, 338), BackgroundTransparency = 1, BorderSizePixel = 0, ClipsDescendants = true, ScrollBarThickness = 3, ScrollBarImageColor3 = Theme.Ink, ScrollingDirection = Enum.ScrollingDirection.Y }, menu)
-	local menuItems = {}
-	for index, item in { { "Obbies", "Courses", "OBBY" }, { "Upgrades", "Mog Power", "UP" }, { "Pets", "Hype squad", "PET" }, { "Worlds", "Zones", "MAP" }, { "Goals", "Tasks & daily reward", "GOAL" }, { "Shop", "Shop", "SHOP" }, { "Settings", "Settings & saving", "SET" } } do
-		local b = button(menuList, item[2], UDim2.fromOffset(9, (index - 1) * 49), UDim2.fromOffset(210, 44), false, function() self:Open(item[1]) end)
-		b.BackgroundColor3 = ({ Theme.Blue, Theme.Accent, Theme.Gold, Theme.Purple, Theme.Danger, Theme.Gold, Theme.Raised })[index]; b.TextSize = 13
-		menuItems[item[1]] = b
-	end
+	local hub = Menu.new(root,Theme,{
+		Open=function(name) self:Open(name) end, Close=function() self:ToggleMenu() end,
+		Feedback=function() callbacks.Feedback("Panel") end, GetState=function() return self.State end,
+		Visibility=function(visible) saveBadge.Visible=not visible; worldBadge.Visible=not visible and self.Viewport~=nil and self.Viewport.X>=620 end,
+	})
+	local menu = hub.Frame
+	self.Menu = hub; self.MenuFrame = menu
 	function self:ToggleMenu()
-		menu.Visible = not menu.Visible; menuDismiss.Visible = menu.Visible
+		hub:SetVisible(not menu.Visible)
+		if menu.Visible and self.ToastFrame then self.ToastId += 1; self.ToastFrame.Visible = false end
 		if self.RewardFrame then self.RewardFrame.Visible = not menu.Visible and not self.Panel and self.RewardVisible == true end
-		if menu.Visible then callbacks.Feedback("Panel"); if UserInputService.GamepadEnabled then GuiService.SelectedObject = menuItems.Obbies end end
+		if menu.Visible then callbacks.Feedback("Panel") end
+		if not menu.Visible and UserInputService.GamepadEnabled then GuiService.SelectedObject = menuButton end
 	end
-	menuDismiss.Activated:Connect(function() menu.Visible = false; menuDismiss.Visible = false; if self.RewardFrame then self.RewardFrame.Visible = self.RewardVisible == true and not self.Panel end end)
 	local toast = label(root, "", 11, UDim2.new(1, -300, 0, 80), UDim2.fromOffset(288, 48), Theme.Text, false)
+	self.ToastFrame = toast
 	toast.BackgroundColor3 = Theme.Background; toast.TextXAlignment = Enum.TextXAlignment.Center; toast.Visible = false; toast.ZIndex = 20
 	round(toast, 8); outline(toast)
 
@@ -166,7 +162,10 @@ function UI.new(config, engine, format, callbacks)
 	local panel = create("Frame", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromOffset(620, 520), BackgroundColor3 = Theme.Background, BorderSizePixel = 0, Visible = false, Active = true, ZIndex = 6 }, root)
 	round(panel, 10); outline(panel)
 	local panelTitle = label(panel, "", 24, UDim2.fromOffset(18, 12), UDim2.new(1, -82, 0, 32), Theme.Text, true)
+	panelTitle.Position = UDim2.fromOffset(64,12); panelTitle.Size = UDim2.new(1,-126,0,32)
+	local panelIcon = create("Frame", { Name = "PanelIcon", Position = UDim2.fromOffset(16,10), Size = UDim2.fromOffset(36,36), BackgroundTransparency = 1 },panel)
 	local close = button(panel, "×", UDim2.new(1, -54, 0, 8), UDim2.fromOffset(44, 44), false, function() self:Close() end); close.TextSize = 22
+	close.BackgroundColor3 = Theme.Danger
 	backdrop.Activated:Connect(function() self:Close() end)
 	local body = create("ScrollingFrame", { BackgroundTransparency = 1, BorderSizePixel = 0, Position = UDim2.fromOffset(14, 57), Size = UDim2.new(1, -28, 1, -71), CanvasSize = UDim2.new(), AutomaticCanvasSize = Enum.AutomaticSize.Y, ScrollBarThickness = 3, ScrollBarImageColor3 = Theme.Line, ScrollingDirection = Enum.ScrollingDirection.Y }, panel)
 	create("UIListLayout", { Padding = UDim.new(0, 8), SortOrder = Enum.SortOrder.LayoutOrder }, body)
@@ -230,10 +229,10 @@ function UI.new(config, engine, format, callbacks)
 		counters.Size = UDim2.fromOffset(math.min(326, width - 82), 47)
 		aura.TextSize = if mobile then 15 else 17; gems.TextSize = if mobile then 14 else 16
 		panel.Size = UDim2.fromOffset(math.min(620, width - 24), math.max(210, math.min(550, height - 36)))
-		menu.Size = UDim2.fromOffset(228, math.min(392, height - 74))
+		hub:Resize(width,height)
 		objective.Size = UDim2.fromOffset(if mobile then 194 else 220, 68)
 		upgradeQuick.Visible = not mobile; shopQuick.Visible = not mobile
-		worldBadge.Visible = width >= 620
+		worldBadge.Visible = width >= 620 and not menu.Visible; saveBadge.Visible = not menu.Visible
 		toast.Size = UDim2.fromOffset(math.min(288, width - 32), 48)
 		toast.Position = if mobile then UDim2.new(0.5, -math.min(288, width - 32) / 2, 0, 157) else UDim2.new(1, -300, 0, 80)
 		prizeCard.Size = UDim2.fromOffset(math.min(292, width - 24), 238)
@@ -251,6 +250,7 @@ function UI.new(config, engine, format, callbacks)
 	workspace:GetPropertyChangedSignal("CurrentCamera"):Connect(bindCamera); bindCamera()
 	UserInputService.InputBegan:Connect(function(input, processed)
 		if processed then return end
+		if (input.KeyCode == Enum.KeyCode.M or input.KeyCode == Enum.KeyCode.ButtonY) and not self.Panel and not confirm.Visible then self:ToggleMenu() end
 		if (input.KeyCode == Enum.KeyCode.F or input.KeyCode == Enum.KeyCode.ButtonX) and not self.Panel and not confirm.Visible then callbacks.Click() end
 		if input.KeyCode == Enum.KeyCode.ButtonB then self:Close() end
 	end)
@@ -275,13 +275,14 @@ function UI.new(config, engine, format, callbacks)
 	end
 	function self:Close()
 		self.Panel = nil; panel.Visible = false; backdrop.Visible = false; confirm.Visible = false; self.ConfirmAction = nil
-		menu.Visible = false; menuDismiss.Visible = false
+		hub:SetVisible(false)
 		prizeCard.Visible = self.RewardVisible == true
+		if UserInputService.GamepadEnabled then GuiService.SelectedObject = menuButton end
 	end
 	function self:Open(name)
 		if not self.State then self:Toast("Your save is still loading."); return end
 		if self.Panel == name then self:Close(); return end
-		self.Panel = name; panel.Visible = true; backdrop.Visible = true; menu.Visible = false; menuDismiss.Visible = false
+		self.Panel = name; panel.Visible = true; backdrop.Visible = true; hub:SetVisible(false)
 		prizeCard.Visible = false
 		callbacks.Feedback("Panel"); self:Render()
 	end
@@ -347,6 +348,8 @@ function UI.new(config, engine, format, callbacks)
 		for _, child in body:GetChildren() do if child:IsA("GuiObject") then child:Destroy() end end
 		body.CanvasPosition = Vector2.zero
 		panelTitle.Text = ({ Obbies = "Rizz Routes", Upgrades = "Mog Lab", Pets = "Hype Squad", Worlds = "World Hop", Goals = "Daily Ws", Shop = "Flex Shop", Settings = "Settings" })[self.Panel] or self.Panel or ""
+		for _,child in panelIcon:GetChildren() do child:Destroy() end
+		MenuIcons.draw(panelIcon,self.Panel,({Obbies=Theme.Gold,Upgrades=Theme.Accent,Pets=Theme.Purple,Worlds=Theme.Blue,Goals=Theme.Danger,Shop=Theme.Gold,Settings=Theme.Blue})[self.Panel] or Theme.Gold,Theme.Ink)
 		local p = self.State; if not p then return end
 		if self.Panel == "Obbies" then
 			self:Note("Click. Climb. Collect. Walk onto START or choose a route below. Follow the numbered jumps; hard first clears unlock a guaranteed pet.", 52)
@@ -555,7 +558,7 @@ function UI.new(config, engine, format, callbacks)
 		for _, goal in config.Quests do if not state.Daily.Claimed[goal.Id] and state.Daily[goal.Counter] >= goal.Target then ready += 1 end end
 		for _, goal in config.Milestones do if not state.Milestones[goal.Id] and engine:MilestoneProgress(state, goal.Id) >= goal.Target then ready += 1 end end
 		if state.Save.Persistent and engine:LoginStatus(state, self:Now()).Ready then ready += 1 end
-		menuItems.Goals.Text = "Tasks & daily reward" .. (if ready > 0 then " (" .. ready .. ")" else "")
+		hub:Update(state,ready)
 		for _, binding in self.Bindings do binding(state) end
 	end
 	function self:Pulse()

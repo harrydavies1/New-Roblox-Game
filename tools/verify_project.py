@@ -162,7 +162,7 @@ def main():
     for key in ("Commerce", "WorldService", "SessionStore", "RateLimiter", "ServerSettings", "Storage", "ObbyService", "ObbyRun"):
         child(server, key)
     client = child(child(child(root, "StarterPlayer"), "StarterPlayerScripts"), "MogClient")
-    for key in ("UI", "PetFactory", "MogPose", "Effects", "Audio", "Music", "WorldVisibility", "CourseGuide"):
+    for key in ("UI", "Menu", "MenuIcons", "PetFactory", "MogPose", "Effects", "Audio", "Music", "WorldVisibility", "CourseGuide"):
         child(client, key)
     child(child(child(root, "ReplicatedStorage"), "MogShared"), "AudioConfig")
     mapped = set()

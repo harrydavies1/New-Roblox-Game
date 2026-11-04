@@ -18,21 +18,28 @@ local function exportLayout(ui,kind)
   if not value then return "#000000" end
   return string.format("#%02x%02x%02x",math.floor(value.R*255+.5),math.floor(value.G*255+.5),math.floor(value.B*255+.5))
  end
- local function visit(item,px,py,pw,ph)
+ local function visit(item,px,py,pw,ph,clips)
   if not item:IsA("GuiObject") or not item.Visible then return end
   local w,h=item.Size.X.Scale*pw+item.Size.X.Offset,item.Size.Y.Scale*ph+item.Size.Y.Offset
   local anchor=item.AnchorPoint or Vector2.zero
   local x,y=px+item.Position.X.Scale*pw+item.Position.X.Offset-anchor.X*w,py+item.Position.Y.Scale*ph+item.Position.Y.Offset-anchor.Y*h
   local radius=0; local border=""; local thickness=1
   for _,child in item:GetChildren() do
-   if child.ClassName=="UICorner" then radius=child.CornerRadius.Offset end
+   if child.ClassName=="UICorner" then radius=child.CornerRadius.Offset+child.CornerRadius.Scale*math.min(w,h) end
    if child.ClassName=="UIStroke" then border=color(child.Color); thickness=child.Thickness end
   end
-  table.insert(rows,{X=x,Y=y,W=w,H=h,Fill=color(item.BackgroundColor3),Alpha=1-(item.BackgroundTransparency or 0),Radius=radius,Border=border,BorderWidth=thickness,
-   Text=item.Text or "",TextColor=color(item.TextColor3),FontSize=item.TextSize or 12,Bold=tostring(item.Font or ""):find("Bold")~=nil,Font=tostring(item.Font or ""),Align=tostring(item.TextXAlignment or "Left")})
-  for _,child in item:GetChildren() do visit(child,x,y,w,h) end
+  local row={X=x,Y=y,W=w,H=h,Fill=color(item.BackgroundColor3),Alpha=1-(item.BackgroundTransparency or 0),Radius=radius,Border=border,BorderWidth=thickness,Rotation=item.Rotation or 0,Clips=clips,
+   Text=item.Text or "",TextColor=color(item.TextColor3),FontSize=item.TextSize or 12,Bold=tostring(item.Font or ""):find("Bold")~=nil,Font=tostring(item.Font or ""),Align=tostring(item.TextXAlignment or "Left")}
+  table.insert(rows,row)
+  local childClips=table.clone(clips)
+  if item.ClipsDescendants or item:IsA("ScrollingFrame") then table.insert(childClips,{x,y,w,h,radius}) end
+  local scroll=item.CanvasPosition or Vector2.zero
+  for _,child in item:GetChildren() do visit(child,x-scroll.X,y-scroll.Y,w,h,childClips) end
+  if border~="" then
+   local edge=table.clone(row); edge.Text=""; edge.Alpha=0; table.insert(rows,edge)
+  end
  end
- for _,item in ui.Screen:GetChildren() do visit(item,0,0,ui.Viewport.X,ui.Viewport.Y) end
+ for _,item in ui.Screen:GetChildren() do visit(item,0,0,ui.Viewport.X,ui.Viewport.Y,{}) end
  print("UI_LAYOUT "..encode({Width=ui.Viewport.X,Height=ui.Viewport.Y,Name=kind or tostring(ui.Viewport.X),Rows=rows}))
 end
 local function view(p,live)
@@ -60,6 +67,7 @@ for _,size in {{320,568},{390,844},{844,390},{1280,720},{1920,1080}} do
    Action=function(name,payload) requests+=1; local ok,message=Engine:Apply(p,name,payload,{Now=8640010,Passes={}}); return {Ok=ok,Message=message,State=view(p,live)} end,
    PetPreview=function(viewport,d,level) local pet=PetFactory.Create(d,level); pet.Model.Parent=viewport; assert(#pet.Model:GetChildren()>=14); previews+=1 end,
   })
+  ui.Menu.Items.Obbies.Button.Activated:Fire(); assert(ui.Panel==nil,"an unloaded menu cannot invoke gameplay panels")
   ui:Update(view(p,live)); ui:Pulse(); assert(ui.PanelFrame.Size.X.Offset<=size[1])
   if phase==1 and (size[1]==320 or size[1]==1280) then
    local preview=view(p,true); preview.Aura=412; preview.TotalClicks=74; preview.Level=2; preview.XP=14; preview.XPRequired=Engine:XPRequired(2); preview.Objective=Objectives.get(preview,Config,Engine)
@@ -86,6 +94,23 @@ for _,size in {{320,568},{390,844},{844,390},{1280,720},{1920,1080}} do
    elseif name=="Goals" then for _,tab in {"Daily","Journal","Login"} do ui.GoalsTab=tab; ui:Render(); ui:Update(view(p,live)); count+=1 end end
    count+=1; ui:Close(); assert(not ui.PanelFrame.Visible)
   end
+  for _,name in {"Obbies","Upgrades","Pets","Worlds","Goals","Shop","Settings"} do
+   ui:ToggleMenu(); assert(ui.MenuFrame.Visible and ui.Menu.Dismiss.Visible and ui.Menu.Shadow.Visible)
+   local list=ui.Menu.List; local listW=ui.MenuFrame.Size.X.Offset+list.Size.X.Offset
+   local rectangles={}
+   for id,item in ui.Menu.Items do
+    local b=item.Button
+    local x,y=b.Position.X.Scale*listW+b.Position.X.Offset,b.Position.Y.Offset
+    local w,h=b.Size.X.Scale*listW+b.Size.X.Offset,b.Size.Y.Offset
+    assert(x>=0 and y>=0 and x+w<=listW and y+h+4<=list.CanvasSize.Y.Offset,"menu targets must fit their scroll canvas")
+    assert(h>=44,"menu touch targets must remain accessible")
+    for _,r in rectangles do assert(x>=r.X+r.W or r.X>=x+w or y>=r.Y+r.H or r.Y>=y+h,"menu targets overlap") end
+    table.insert(rectangles,{X=x,Y=y,W=w,H=h})
+   end
+   ui.Menu.Items[name].Button.Activated:Fire()
+   assert(ui.Panel==name and not ui.MenuFrame.Visible and not ui.Menu.Dismiss.Visible and not ui.Menu.Shadow.Visible,"each tile must open its corresponding panel")
+   ui:Close(); count+=1
+  end
   if phase==2 then
    ui.Tab="Cosmetics"; ui:Open("Shop"); local choice
    for _,o in ui.Body:GetDescendants() do if o.ClassName=="TextButton" and o.Text=="60 Flex Gems · guaranteed style" then choice=o; break end end
@@ -98,6 +123,26 @@ for _,size in {{320,568},{390,844},{844,390},{1280,720},{1920,1080}} do
   end
   ui:Close()
   if phase==1 then
+   services.UserInputService.GamepadEnabled=true
+   ui:ToggleMenu(); assert(services.GuiService.SelectedObject==ui.Menu.Items.Obbies.Button)
+   ui.Menu.Items.Upgrades.Button.SelectionGained:Fire()
+   ui.Menu.Items.Upgrades.Button.InputBegan:Fire({UserInputType=Enum.UserInputType.Touch})
+   ui:ToggleMenu(); assert(services.GuiService.SelectedObject~=ui.Menu.Items.Obbies.Button)
+   assert(ui.Menu.Items.Upgrades.Face.Position.Y.Offset==0,"dismissal must release a pressed tile")
+   services.UserInputService.GamepadEnabled=false
+   ui.Menu:Resize(320,532); assert(ui.MenuFrame.Size.X.Offset==296 and ui.MenuFrame.Position.Y.Offset+ui.MenuFrame.Size.Y.Offset<=532)
+   ui.Menu:Resize(844,354); ui.Menu.Items.Settings.Button.SelectionGained:Fire()
+   assert(ui.Menu.List.CanvasPosition.Y>0,"gamepad focus must scroll small viewports to the utility controls")
+   ui.Menu.Items.Obbies.Button.SelectionGained:Fire(); assert(ui.Menu.List.CanvasPosition.Y==0)
+   ui.Menu:Resize(width,height)
+   local ready=view(p,live); ready.Daily.Clicks=Config.Quests[1].Target
+   ui:Update(ready); assert(ui.Menu.Items.Goals.Badge.Visible and ui.Menu.Items.Goals.Detail.Text:find("ready",1,true))
+   if size[1]==390 then ui:ToggleMenu(); exportLayout(ui,"menu-rewards-phone"); ui:ToggleMenu() end
+   ui:Update(view(p,live)); assert(not ui.Menu.Items.Goals.Badge.Visible,"claimed or unavailable rewards must not leave a stale badge")
+   services.UserInputService.InputBegan:Fire({KeyCode=Enum.KeyCode.M},false); assert(ui.MenuFrame.Visible)
+   services.UserInputService.InputBegan:Fire({KeyCode=Enum.KeyCode.M},true); assert(ui.MenuFrame.Visible,"chat-processed input must not toggle the menu")
+   services.UserInputService.InputBegan:Fire({KeyCode=Enum.KeyCode.M},false); assert(not ui.MenuFrame.Visible)
+   count+=3
    ui:Open("Settings")
    local function choose(caption)
     for _,o in ui.Body:GetDescendants() do if o:IsA("TextButton") and o.Text==caption then o.Activated:Fire(); return end end
@@ -117,6 +162,8 @@ for _,size in {{320,568},{390,844},{844,390},{1280,720},{1920,1080}} do
    ui:ToggleMenu(); assert(not ui.RewardFrame.Visible,"menu must stay usable after winning")
    assert(ui.MenuFrame.Position.Y.Offset+ui.MenuFrame.Size.Y.Offset<=height,"menu must fit landscape as well as portrait")
    if size[1]==1280 then exportLayout(ui,"menu-desktop") end
+   if size[1]==320 then exportLayout(ui,"menu-phone") end
+   if size[1]==844 then exportLayout(ui,"menu-landscape") end
    ui:Close(); assert(ui.RewardFrame.Visible)
    local squad
    for _,o in ui.RewardFrame:GetDescendants() do if o:IsA("TextButton") and o.Text=="VIEW HYPE SQUAD" then squad=o end end
@@ -128,5 +175,5 @@ for _,size in {{320,568},{390,844},{844,390},{1280,720},{1920,1080}} do
   ui:Close(); ui.Screen:Destroy()
  end
 end
-assert(previews==480,previews)
+assert(previews==555,previews)
 print(string.format("PASS: %d headless UI scenarios, %d pet model previews across five viewports",count,previews))

@@ -50,6 +50,7 @@ function methods:FindFirstAncestorOfClass(class)
  while parent do if parent.ClassName==class then return parent end; parent=parent.Parent end
  return nil
 end
+function methods:IsDescendantOf(ancestor) local p=self.Parent; while p do if p==ancestor then return true end; p=p.Parent end; return false end
 function methods:Play() self.Playing=true; self.IsPlaying=true; self.TimePosition=0 end
 function methods:Stop() self.Playing=false; self.IsPlaying=false; self.TimePosition=0 end
 function methods:Pause() self.Playing=false; self.IsPlaying=false end
@@ -70,7 +71,7 @@ local meta={
   self._props[key]=value
  end,
 }
-local Instance={new=function(class) return setmetatable({_children={},_signals={},_attributes={},_props={ClassName=class,Name=class,Active=true,Interactable=true,Visible=true,Enabled=true,IsLoaded=true,TimeLength=.5,TimePosition=0,Position=UDim2.new(),Size=UDim2.new(),Text="",Ended=signal(),Loaded=signal(),Activated=signal(),Triggered=signal(),Touched=signal(),InputBegan=signal(),OnServerEvent=signal(),CharacterAdded=signal(),PlayerAdded=signal(),PlayerRemoving=signal(),DescendantAdded=signal(),DescendantRemoving=signal()}},meta) end}
+local Instance={new=function(class) return setmetatable({_children={},_signals={},_attributes={},_props={ClassName=class,Name=class,Active=true,Interactable=true,Visible=true,Enabled=true,IsLoaded=true,TimeLength=.5,TimePosition=0,Position=UDim2.new(),Size=UDim2.new(),Text="",Ended=signal(),Loaded=signal(),Activated=signal(),Triggered=signal(),Touched=signal(),InputBegan=signal(),InputEnded=signal(),MouseEnter=signal(),MouseLeave=signal(),SelectionGained=signal(),SelectionLost=signal(),OnServerEvent=signal(),CharacterAdded=signal(),PlayerAdded=signal(),PlayerRemoving=signal(),DescendantAdded=signal(),DescendantRemoving=signal()}},meta) end}
 local player=Instance.new("Player"); local gui=Instance.new("PlayerGui"); gui.Name="PlayerGui"; gui.Parent=player
 local camera=Instance.new("Camera"); camera.ViewportSize=Vector2.new(1280,720)
 local workspace=Instance.new("Workspace"); workspace.CurrentCamera=camera

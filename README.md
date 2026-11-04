@@ -4,6 +4,8 @@
 
 Click to build Aura, upgrade Mog Power, beat obbies for XP and exclusive pets, and unlock four islands beyond Mewing Meadow. A compact cartoon HUD uses warm sticker panels, chunky ink borders, round lettering, and gold/lime/blue accents. The goal card shows a next step while most of the world stays visible. See [the prize and presentation revision](docs/PRIZE_PARTY.md).
 
+The [illustrated player menu](docs/MENU.md) features an original mascot and icons, a gold Courses action, a progression grid, live collection/reward badges, raised button feedback, and controller/phone navigation.
+
 **Downloads:** [Complete source ZIP](https://github.com/harrydavies1/New-Roblox-Game/archive/refs/heads/main.zip) · [Ready-to-open Studio game](https://github.com/harrydavies1/New-Roblox-Game/raw/refs/heads/main/releases/MogMode.rbxl)
 
 Open `releases/MogMode.rbxl` in Roblox Studio on Windows or macOS and press **Play**. No uploaded art, animation IDs, or credentials are needed to preview it. To keep progress between sessions, publish a private Roblox test experience and enable **Studio Access to API Services** in its Security settings. An unpublished place or unavailable Studio API uses a clearly labelled **Preview · saving off** mode. Real Robux purchases are disabled in Studio.
@@ -26,7 +28,7 @@ The images below show geometry exported from the actual HUD code. They are layou
 
 [Phone HUD layout preview](docs/hud-phone.png)
 
-[Menu layout](docs/hud-menu-desktop.png) · [Prize card layout](docs/hud-prize-phone.png) (2D layouts; Roblox's 3D pet rendering is omitted.)
+[Menu on desktop](docs/hud-menu-desktop.png) · [Menu on phone](docs/hud-menu-phone.png) · [Landscape menu](docs/hud-menu-landscape.png) · [Prize card layout](docs/hud-prize-phone.png) (2D layouts; Roblox's 3D pet rendering is omitted.)
 
 ### Saving
 
@@ -69,7 +71,7 @@ On Linux x86_64 with Python 3, curl, and Git:
 bash tools/check.sh
 ```
 
-The installer checks pinned SHA-256 digests for Rojo 7.7.1 and Luau 0.745. The script analyzes pure modules, compiles all 23 game scripts, runs 122 core tests, exercises actual UI/server/service source against explicit boundary fakes, checks generated config/map consistency, builds both place formats, and inspects embedded scripts and map geometry. Coverage includes 410 UI scenarios across five viewports, 480 model previews, 124 existing and 351 expanded service assertions, 58 real server-entry handler assertions, and 72 playlist/audio assertions. The prize dispatcher, natural starts, save retries, sound cleanup, ordered music looping, music preferences, guidance, and landscape bounds are included. These are CLI checks, not Roblox engine playtests.
+The installer checks pinned SHA-256 digests for Rojo 7.7.1 and Luau 0.745. The script analyzes pure modules, compiles all 25 game scripts, runs 122 core tests, exercises actual UI/server/service source against explicit boundary fakes, checks generated config/map consistency, builds both place formats, and inspects embedded scripts and map geometry. Coverage includes 530 UI scenarios across five viewports, 555 model previews, 124 existing and 351 expanded service assertions, 58 real server-entry handler assertions, and 72 playlist/audio assertions. Menu routing, focus, scroll bounds, reward badges, the prize dispatcher, natural starts, sound cleanup, ordered music looping, and saved preferences are included. These are CLI checks, not Roblox engine playtests.
 
 In the prepared cloud environment, reuse cached tools with:
 
